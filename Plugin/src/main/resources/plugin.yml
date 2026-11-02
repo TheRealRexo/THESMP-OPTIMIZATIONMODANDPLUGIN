@@ -3,13 +3,12 @@ version: 1.0.0
 main: com.rexo.bedwars.optimizer.BedWarsOptimizer
 api-version: 1.21
 authors: [Rexo]
-description: >-
-  BedWars CPU profiler + client-side load offload.
-  Profiles hot entities/tiles and reports them to clients with spare CPU.
 prefix: BWOPT
 default-enabled: true
 loadbefore: [BedWars1058, UltraCosmetics]
-required-mods: [bedwars-optimizer]
-mod-enforcement:
-  grace-period-ticks: 600
-  kick-message: "&c&lBedWarsOptimizer&7 requires the client mod to join.\n&7Install it from: &bgithub.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN"
+description: BedWars CPU profiler + client-side load offload.
+commands:
+  bwopt:
+    description: BedWarsOptimizer control commands
+    usage: /bwopt <profile|offload|status>
+    aliases: [bwo]

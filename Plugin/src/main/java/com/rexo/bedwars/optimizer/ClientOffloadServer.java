@@ -48,6 +48,6 @@ public class ClientOffloadServer {
         // Placeholder for actual server implementation
         // In production, use Netty or a simple SocketServer
         // For now, we log that the server would start
-        System.out.println("[BWOpt] Client offload server would start on port " + DEFAULT_PORT);
+        System.err.println("[BWOpt] Client offload server would start on port " + DEFAULT_PORT);
     }
 }
