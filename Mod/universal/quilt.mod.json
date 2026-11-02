@@ -6,13 +6,19 @@
     "version": "1.0.0",
     "metadata": {
       "name": "BedWarsOptimizer Client Mod",
-      "description": "Improves server-client performance when joining the BedWars server.",
+      "description": "Improves server-client performance when joining the BedWars server. Optimizes client-side processing to reduce lag spikes and smooth gameplay during peak server load.",
       "authors": ["TheRealRexo"],
-      "contact": {},
+      "contact": {
+        "homepage": "https://github.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN"
+      },
       "license": "MIT",
       "icon": "assets/bedwars-optimizer/icon.png"
     },
-    "intermediate": "common"
+    "intermediate": "common",
+    "modmenu": {
+      "modId": "bedwars-optimizer",
+      "parent": "root"
+    }
   },
   "entrypoints": {
     "quilt_client": ["com.rexo.bedwars.clienthelper.quilt.QuiltClientHelper"]
@@ -30,6 +36,11 @@
     {
       "id": "minecraft",
       "versions": ">=1.14"
+    },
+    {
+      "id": "modmenu",
+      "versions": ">=7.0.0",
+      "optional": true
     }
   ]
 }

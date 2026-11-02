@@ -1,24 +1,32 @@
 {
   "schemaVersion": 1,
-  "id": "fabricloader",
-  "name": "Fabric Loader",
-  "version": "0.18.4",
-  "environment": "*",
-  "description": "The base mod loader.",
+  "id": "bedwars-optimizer",
+  "version": "1.0.0",
+  "name": "BedWarsOptimizer Client Mod",
+  "description": "Improves server-client performance when joining the BedWars server. Optimizes client-side processing to reduce lag spikes and smooth gameplay during peak server load.",
+  "authors": ["TheRealRexo"],
   "contact": {
-    "homepage": "https://fabricmc.net",
-    "irc": "ircs://irc.esper.net:6697/fabric",
-    "issues": "https://github.com/FabricMC/fabric-loader/issues",
-    "sources": "https://github.com/FabricMC/fabric-loader"
+    "homepage": "https://github.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN",
+    "issues": "https://github.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN/issues"
   },
-  "license": "Apache-2.0",
-  "icon": "assets/fabricloader/icon.png",
-  "authors": [
-    "FabricMC"
-  ],
-  "jars": [
-    {
-      "file": "META-INF/jars/mixinextras-fabric-0.5.0.jar"
+  "license": "MIT",
+  "icon": "assets/bedwars-optimizer/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "fabricclient": ["com.rexo.bedwars.clienthelper.fabric.FabricClientHelper"]
+  },
+  "mixins": [],
+  "depends": {
+    "fabricloader": ">=0.14.0",
+    "minecraft": ">=1.12.2",
+    "java": ">=17",
+    "modmenu": ">=7.0.0"
+  },
+  "custom": {
+    "modmenu": {
+      "modId": "bedwars-optimizer",
+      "parent": "root",
+      "badges": ["optional"]
     }
-  ]
+  }
 }

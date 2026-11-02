@@ -1,18 +1,23 @@
 [
   {
-    "modId": "bedwarsoptimizer",
+    "modId": "bedwars-optimizer",
     "version": "1.0.0",
     "displayName": "BedWarsOptimizer Client Mod",
-    "description": "Improves server-client performance when joining the BedWars server.",
+    "description": "Improves server-client performance when joining the BedWars server. Optimizes client-side processing to reduce lag spikes and smooth gameplay during peak server load.",
     "authors": ["TheRealRexo"],
-    "displayUrl": "",
-    "logoFile": "",
-    "logoFile": "",
-    "url": "",
-    "url": "",
+    "displayUrl": "https://github.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN",
+    "logoFile": "assets/bedwars-optimizer/icon.png",
+    "url": "https://github.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN",
     "parentMod": "",
     "dependencies": [],
-    "modListEntry": "",
+    "modListEntry": {
+      "modId": "bedwars-optimizer",
+      "displayName": "BedWarsOptimizer Client Mod",
+      "description": "Improves server-client performance when joining the BedWars server.",
+      "logoFile": "assets/bedwars-optimizer/icon.png",
+      "authors": ["TheRealRexo"],
+      "required": true
+    },
     "required": true
   }
 ]

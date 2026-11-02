@@ -242,12 +242,16 @@ jobs:
           for jar in $(find ../../client-jars -name "bedwars-optimizer-*.jar"); do
             jar xf "$jar"
           done
+          # Add icon
+          mkdir -p assets/bedwars-optimizer
+          cp ../../Mod/universal/assets/bedwars-optimizer/icon.png assets/bedwars-optimizer/
           # Add metadata files for Modrinth compatibility
-          mkdir -p META-INF
           cp ../../Mod/universal/fabric.mod.json .
           cp ../../Mod/universal/mcmod.info .
           cp ../../Mod/universal/neoforge.mod.json .
           cp ../../Mod/universal/quilt.mod.json .
+          mkdir -p META-INF
+          cp ../../Mod/universal/META-INF/mods.toml META-INF/
           jar cf ../../build-artifacts/bedwars-optimizer-universal.jar .
           mkdir -p ../../build-artifacts
           mv ../../build-artifacts/bedwars-optimizer-universal.jar ../../build-artifacts/ 2>/dev/null || true
