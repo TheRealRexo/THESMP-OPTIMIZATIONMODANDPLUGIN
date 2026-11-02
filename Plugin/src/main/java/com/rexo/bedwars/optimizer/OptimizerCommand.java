@@ -95,16 +95,20 @@ public class OptimizerCommand implements CommandExecutor, TabCompleter {
 
     private void showOffload(Player player) {
         player.sendMessage(ChatColor.GREEN + "=== Offload Status ===");
-        var clients = plugin.getClientComm().getConnectedClients();
-        player.sendMessage(ChatColor.GRAY + "Connected clients: " + clients.size());
-        int strongClients = 0;
+        var clients = plugin.getModEnforcer().getRegisteredClients();
+        player.sendMessage(ChatColor.GRAY + "Registered clients (Java+mod): " + clients.size());
+        int capable = 0;
         for (var info : clients.values()) {
-            if (plugin.getClientComm().isClientStrongEnough(info.getPlayerId())) {
-                strongClients++;
-                player.sendMessage(ChatColor.YELLOW + "  Strong client: " + info.getPlayerId());
+            if (plugin.getClientComm().isClientCapable(info.playerId)) {
+                capable++;
+                Player p = plugin.getServer().getPlayer(info.playerId);
+                String name = p != null ? p.getName() : info.playerId.toString();
+                player.sendMessage(ChatColor.YELLOW + "  §e" + name + " §7(cpu:" + String.format("%.2f", info.cpuCapability) + ")");
             }
         }
-        player.sendMessage(ChatColor.GRAY + "Strong clients: " + strongClients);
+        player.sendMessage(ChatColor.GRAY + "Capable clients: " + capable);
+        player.sendMessage(ChatColor.GRAY + "Bedrock players: " + plugin.getModEnforcer().getBedrockPlayerCount());
+        player.sendMessage(ChatColor.GRAY + "Server load: " + String.format("%.2f", plugin.getModEnforcer().getServerLoadFactor()));
     }
 
     private void resetProfile(Player player) {

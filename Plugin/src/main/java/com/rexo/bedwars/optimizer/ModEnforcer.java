@@ -6,88 +6,74 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ModEnforcer — ensures every player on the BedWars server has the
- * BedWarsOptimizer client mod installed. Players who haven't registered
- * their mod within the grace period are kicked.
+ * ModEnforcer — manages client mod registration and dynamic load offload.
  *
- * The client mod registers itself via ClientComm.registerClient(),
- * which is called when the client's ClientOffloadManager sends a handshake.
+ * Java clients with the mod: registered → receive offload tasks based on their ping/CPU capability
+ * Bedrock clients (no mod): skipped entirely → no enforcement, no kicking
+ *
+ * Dynamically splits workload based on:
+ *   - Client ping (inverse proxy for CPU capability)
+ *   - Server TPS / load
+ *   - Number of capable clients
  */
 public class ModEnforcer implements Listener {
 
     private final BedWarsOptimizer plugin;
     private final ProfilerConfig config;
-    private final Map<UUID, GracePeriod> activeGracePeriods = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> registeredClients = new ConcurrentHashMap<>();
+    private final Map<UUID, ClientInfo> registeredClients = new ConcurrentHashMap<>();
+    private boolean floodgateAvailable = false;
 
     public ModEnforcer(BedWarsOptimizer plugin, ProfilerConfig config) {
         this.plugin = plugin;
         this.config = config;
+        // Probe for Floodgate API on startup
+        try {
+            Class.forName("org.geysermc.floodgate.api.FloodgateApi");
+            floodgateAvailable = true;
+            plugin.getLogger().info("Floodgate API detected — Bedrock players will be exempt from mod enforcement");
+        } catch (ClassNotFoundException e) {
+            plugin.getLogger().warning("Floodgate API not found — unable to detect Bedrock players");
+        }
     }
 
-    /**
-     * Called when a player joins. Starts the grace period countdown.
-     */
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
 
-        // If enforcement is disabled, don't track
-        if (!config.isModEnforcementEnabled()) return;
-
-        // Check if already registered (shouldn't happen on first join, but be safe)
-        if (registeredClients.containsKey(uuid)) {
-            plugin.getLogger().fine("Player " + player.getName() + " already registered with mod");
+        // Skip Bedrock players — they can't have the Java client mod
+        if (isBedrockPlayer(uuid)) {
+            plugin.getLogger().fine("Bedrock player detected: " + player.getName() + " — skipping mod enforcement");
             return;
         }
 
-        GracePeriod grace = new GracePeriod(player, uuid);
-        activeGracePeriods.put(uuid, grace);
-        grace.start();
-
-        plugin.getLogger().fine("Started grace period for " + player.getName() +
-            " (" + config.getModGracePeriodTicks() + " ticks)");
+        // Java players start unregistered; they self-register via ClientComm.registerClient()
+        plugin.getLogger().fine("Java player joined: " + player.getName() + " — waiting for mod handshake");
     }
 
-    /**
-     * Called when a player leaves. Cancels their grace period.
-     */
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
-        GracePeriod grace = activeGracePeriods.remove(uuid);
-        if (grace != null) {
-            grace.cancel();
-        }
         registeredClients.remove(uuid);
     }
 
     /**
-     * Register a client mod handshake. Called by ClientComm when a client
-     * successfully sends its registration packet.
+     * Called when a Java client mod sends its handshake packet.
      */
-    public void registerClient(UUID uuid) {
-        registeredClients.put(uuid, System.currentTimeMillis());
+    public void registerClient(UUID playerId, double cpuCapability) {
+        registeredClients.put(playerId, new ClientInfo(playerId, cpuCapability));
+        plugin.getLogger().info("Client mod registered: " + playerId + " (cpu: " + String.format("%.2f", cpuCapability) + ")");
 
-        // Cancel the grace period if one is active
-        GracePeriod grace = activeGracePeriods.remove(uuid);
-        if (grace != null) {
-            grace.cancel();
-            Player player = plugin.getServer().getPlayer(uuid);
-            if (player != null) {
-                player.sendMessage(net.kyori.adventure.text.Component.text("§a§lBedWarsOptimizer §7— mod detected! Profiling enabled."));
-            }
+        Player p = plugin.getServer().getPlayer(playerId);
+        if (p != null) {
+            p.sendMessage("§a§lBedWarsOptimizer §7— mod detected! Load optimization active.");
         }
-
-        plugin.getLogger().fine("Client mod registered: " + uuid);
     }
 
     /**
@@ -98,104 +84,95 @@ public class ModEnforcer implements Listener {
     }
 
     /**
-     * Get the number of registered clients.
+     * Get number of registered (mod-equipped) Java clients.
      */
     public int getRegisteredCount() {
         return registeredClients.size();
     }
 
     /**
-     * Get the number of players currently in grace period.
+     * Get number of known Bedrock players on the server.
      */
-    public int getGracePeriodCount() {
-        return activeGracePeriods.size();
+    public int getBedrockPlayerCount() {
+        return (int) Bukkit.getOnlinePlayers().stream()
+                .filter(p -> isBedrockPlayer(p.getUniqueId()))
+                .count();
     }
 
     /**
-     * Represents an active grace period for a player who hasn't registered yet.
+     * Estimate CPU capability for a Java client based on ping.
+     * Lower ping → higher capability (inverse proxy for connection/PC quality).
      */
-    private class GracePeriod {
-        private final Player player;
-        private final UUID uuid;
-        private final long expireTime;
-        private final BukkitTask task;
-        private boolean cancelled = false;
+    public double estimateClientCpu(Player player) {
+        if (player == null) return 0.5;
+        int ping = player.getPing();
+        if (ping < 30) return 1.0;
+        if (ping < 60) return 0.9;
+        if (ping < 100) return 0.8;
+        if (ping < 150) return 0.7;
+        if (ping < 250) return 0.6;
+        if (ping < 400) return 0.5;
+        if (ping < 600) return 0.4;
+        return 0.3;
+    }
 
-        GracePeriod(Player player, UUID uuid) {
-            this.player = player;
-            this.uuid = uuid;
-            this.expireTime = System.currentTimeMillis() +
-                (config.getModGracePeriodTicks() * 50L); // 50ms per tick
+    /**
+     * Calculate server load factor (0.0 = idle, 1.0 = max load).
+     * Based on TPS deficit and RAM usage.
+     */
+    public double getServerLoadFactor() {
+        double[] tps = Bukkit.getTPS();
+        double currentTps = Math.min(tps[0], 20.0);
+        double tpsLoad = Math.max(0.0, (20.0 - currentTps) / 20.0);
 
-            // Schedule a task to check every second
-            this.task = plugin.getServer().getScheduler().runTaskTimerAsynchronously(
-                plugin, this::checkGracePeriod, 20L, 20L);
+        long totalMem = Runtime.getRuntime().totalMemory();
+        long maxMem = Runtime.getRuntime().maxMemory();
+        double ramLoad = (double) (totalMem - Runtime.getRuntime().freeMemory()) / maxMem;
+
+        // Weighted combination: TPS matters more
+        return Math.min(1.0, tpsLoad * 0.7 + ramLoad * 0.3);
+    }
+
+    /**
+     * Get the list of registered Java clients with their estimated capabilities.
+     */
+    public Map<UUID, ClientInfo> getRegisteredClients() {
+        return registeredClients;
+    }
+
+    // ─── Bedrock detection ───────────────────────────────────────────────────────
+
+    /**
+     * Check if a player is a Bedrock (Geyser/Floodgate) player.
+     * Returns false if Floodgate is not present (conservative: treat as Java).
+     */
+    private boolean isBedrockPlayer(UUID uuid) {
+        if (!floodgateAvailable) return false;
+        try {
+            Object api = Class.forName("org.geysermc.floodgate.api.FloodgateApi")
+                    .getMethod("getInstance")
+                    .invoke(null);
+            return (boolean) api.getClass().getMethod("isFloodgatePlayer", UUID.class)
+                    .invoke(api, uuid);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // ─── Inner class ─────────────────────────────────────────────────────────────
+
+    public static class ClientInfo {
+        final UUID playerId;
+        final double cpuCapability; // 0.0-1.0
+        long lastReportTime;
+
+        ClientInfo(UUID playerId, double cpuCapability) {
+            this.playerId = playerId;
+            this.cpuCapability = cpuCapability;
+            this.lastReportTime = System.currentTimeMillis();
         }
 
-        void start() {
-            // Send reminder messages
-            sendReminder();
-        }
-
-        void checkGracePeriod() {
-            if (cancelled) return;
-
-            if (!player.isOnline()) {
-                cancel();
-                return;
-            }
-
-            long remaining = expireTime - System.currentTimeMillis();
-            long remainingSeconds = remaining / 1000;
-
-            // Send reminder at certain thresholds
-            if (remainingSeconds == 60 || remainingSeconds == 30 || remainingSeconds == 10) {
-                sendReminder(remainingSeconds);
-            }
-
-            // Grace period expired — kick the player
-            if (remaining <= 0) {
-                kickPlayer();
-            }
-        }
-
-        void sendReminder() {
-            player.sendMessage("§e§lBedWarsOptimizer §7— Install the client mod to join this server.");
-            player.sendMessage("§7Download: §bgithub.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN");
-        }
-
-        void sendReminder(long remainingSeconds) {
-            player.sendMessage("§c§lBedWarsOptimizer §7— You have §e" + remainingSeconds +
-                "s §7remaining to install the mod before being kicked.");
-        }
-
-        void kickPlayer() {
-            if (cancelled) return;
-            cancelled = true;
-
-            if (task != null) {
-                task.cancel();
-            }
-
-            String kickMessage = config.getModKickMessage()
-                .replace("\\n", "\n")
-                .replace("&", "§");
-
-            if (player.isOnline()) {
-                player.kickPlayer(kickMessage);
-            }
-
-            activeGracePeriods.remove(uuid);
-            plugin.getLogger().warning("Kicked " + player.getName() +
-                " for not having the BedWarsOptimizer client mod.");
-        }
-
-        void cancel() {
-            if (cancelled) return;
-            cancelled = true;
-            if (task != null) {
-                task.cancel();
-            }
-        }
+        public UUID getPlayerId() { return playerId; }
+        public double getCpuCapability() { return cpuCapability; }
     }
 }

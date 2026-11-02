@@ -1,42 +1,32 @@
 package com.rexo.bedwars.optimizer;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ClientComm — communicates with client mods to offload CPU-intensive work.
- * Uses a simple TCP-like protocol over UDP (since Bedrock uses UDP).
- * For Java clients, we use a lightweight WebSocket server.
+ * ClientComm — orchestrates dynamic load offload between server and capable clients.
+ *
+ * Java clients with the mod: receive offload tasks proportional to their CPU capability
+ * Bedrock clients: handled entirely server-side (no mod, no offload)
+ *
+ * Load splitting is dynamic: recalculated every poll interval based on
+ * current server TPS, RAM, and per-client ping.
  */
 public class ClientComm {
     private final BedWarsOptimizer plugin;
     private final ProfilerConfig config;
     private final LoadReportManager reportManager;
-    private final Map<UUID, ClientInfo> connectedClients = new ConcurrentHashMap<>();
-    private BukkitTask clientPollTask;
-    private ClientOffloadServer server;
+    private BukkitTask offloadTask;
 
-    // Client capabilities
-    public static class ClientInfo {
-        final UUID playerId;
-        final double cpuCapability; // 0.0-1.0, how much CPU this client can handle
-        long lastReportTime;
-
-        ClientInfo(UUID playerId, double cpuCapability) {
-            this.playerId = playerId;
-            this.cpuCapability = cpuCapability;
-            this.lastReportTime = System.currentTimeMillis();
-        }
-        
-        public UUID getPlayerId() { return playerId; }
-        public double getCpuCapability() { return cpuCapability; }
-    }
+    // Track how much work each client has been assigned (for rate limiting)
+    private final Map<UUID, Integer> tasksAssigned = new ConcurrentHashMap<>();
 
     public ClientComm(BedWarsOptimizer plugin, ProfilerConfig config, LoadReportManager reportManager) {
         this.plugin = plugin;
@@ -47,94 +37,92 @@ public class ClientComm {
     public void enable() {
         if (!config.isOffloadEnabled()) return;
 
-        // Start WebSocket server for Java clients
-        server = new ClientOffloadServer(this, config);
-        server.start();
-
-        // Periodically check for strong clients
-        clientPollTask = Bukkit.getScheduler().runTaskTimer(plugin, this::pollClients, 0, 100L);
+        // Periodically recalculate load split and dispatch tasks
+        offloadTask = Bukkit.getScheduler().runTaskTimer(plugin, this::pollAndOffload, 0, 100L);
+        plugin.getLogger().info("Dynamic load offload enabled — polling every 5s");
     }
 
     public void disable() {
-        if (clientPollTask != null) {
-            clientPollTask.cancel();
-            clientPollTask = null;
+        if (offloadTask != null) {
+            offloadTask.cancel();
+            offloadTask = null;
         }
-        if (server != null) {
-            server.stop();
-            server = null;
+        tasksAssigned.clear();
+    }
+
+    private void pollAndOffload() {
+        // Calculate current server load
+        double serverLoad = plugin.getModEnforcer().getServerLoadFactor();
+
+        // Get all online Java players with the mod
+        List<ModEnforcer.ClientInfo> capableClients = new ArrayList<>();
+        for (Map.Entry<UUID, ModEnforcer.ClientInfo> entry :
+                plugin.getModEnforcer().getRegisteredClients().entrySet()) {
+            Player p = plugin.getServer().getPlayer(entry.getKey());
+            if (p != null && p.isOnline()) {
+                // Refresh CPU estimate from current ping
+                double cpuCap = plugin.getModEnforcer().estimateClientCpu(p);
+                capableClients.add(new ModEnforcer.ClientInfo(entry.getKey(), cpuCap));
+            }
         }
-        connectedClients.clear();
-    }
 
-    private void pollClients() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            UUID uuid = player.getUniqueId();
-            // Estimate client CPU based on player's average ping (inverse proxy for capability)
-            double cpuCapability = estimateClientCpu(player);
-            connectedClients.put(uuid, new ClientInfo(uuid, cpuCapability));
+        // Bedrock player count (for reporting, not offload)
+        int bedrockCount = plugin.getModEnforcer().getBedrockPlayerCount();
+
+        // If server is under heavy load and we have capable clients, offload work
+        double threshold = config.getClientCpuThreshold();
+        capableClients.removeIf(c -> c.cpuCapability < threshold);
+
+        if (capableClients.isEmpty()) {
+            return;
         }
-    }
 
-    private double estimateClientCpu(Player player) {
-        // Simple heuristic: lower ping = better connection = likely stronger client
-        // Range: 0.1 (weak/mobile) to 1.0 (strong PC)
-        int ping = player.getPing();
-        if (ping < 50) return 1.0;
-        if (ping < 100) return 0.8;
-        if (ping < 200) return 0.6;
-        if (ping < 500) return 0.4;
-        return 0.2;
-    }
+        // Dynamic allocation: more server load → more offload to clients
+        // Fewer capable clients → each gets a larger share
+        double loadFactor = serverLoad; // 0.0-1.0
+        int maxOffloadPerTick = config.getMaxOffloadPerTick();
+        int sharePerClient = maxOffloadPerTick / capableClients.size();
 
-    public void registerClient(UUID playerId, double cpuCapability) {
-        connectedClients.put(playerId, new ClientInfo(playerId, cpuCapability));
-        plugin.getLogger().info("Client registered: " + playerId + " (cpu: " + String.format("%.2f", cpuCapability) + ")");
+        // Scale up when server is under pressure
+        int boostedShare = (int) (sharePerClient * (1.0 + loadFactor));
 
-        // Notify the mod enforcer that this player has the client mod
-        if (plugin.getModEnforcer() != null) {
-            plugin.getModEnforcer().registerClient(playerId);
+        for (ModEnforcer.ClientInfo client : capableClients) {
+            // Rate limit: don't assign more than boostedShare per cycle
+            int alreadyAssigned = tasksAssigned.getOrDefault(client.playerId, 0);
+            if (alreadyAssigned >= boostedShare) continue;
+
+            int toAssign = Math.min(boostedShare - alreadyAssigned, boostedShare);
+            tasksAssigned.merge(client.playerId, toAssign, Integer::sum);
+
+            // Send offload signal to client mod (via registered channel)
+            // In production this would serialize BWOptimizerData.OffloadPacket
+            plugin.getLogger().fine("Offloading ~" + toAssign + " items to client " +
+                    client.playerId + " (cpu:" + String.format("%.2f", client.cpuCapability) +
+                    ", load:" + String.format("%.2f", serverLoad) + ")");
         }
-    }
 
-    public void unregisterClient(UUID playerId) {
-        connectedClients.remove(playerId);
-    }
-
-    public Map<UUID, ClientInfo> getConnectedClients() {
-        return connectedClients;
+        // Log summary for ops
+        if (Bukkit.getOnlinePlayers().size() % 20 == 0) { // every ~20 seconds
+            plugin.getLogger().info(String.format(
+                    "[BWOpt] Offload: %.1f server load | %d capable clients | %d bedrock players | share: %d/client",
+                    serverLoad, capableClients.size(), bedrockCount, boostedShare));
+        }
     }
 
     /**
-     * Send offload tasks to capable clients.
-     * This is called periodically to distribute work.
+     * Register a Java client that connected with the mod.
+     * Called by ClientOffloadServer when a handshake is received.
      */
-    public void sendOffloadTasks() {
-        if (!config.isOffloadEnabled()) return;
-
-        // Get hot entities and tiles from profiler
-        var hotEntities = plugin.getProfiler().getHotEntities();
-        var hotTiles = plugin.getProfiler().getHotTiles();
-
-        // Find strong clients
-        double threshold = config.getClientCpuThreshold();
-        var strongClients = connectedClients.values().stream()
-            .filter(c -> c.cpuCapability >= threshold)
-            .toList();
-
-        if (strongClients.isEmpty()) return;
-
-        // Distribute work
-        int itemsPerClient = config.getMaxOffloadPerTick() / strongClients.size();
-        for (var client : strongClients) {
-            // Send relevant hot spots to this client
-            // In a full implementation, this would serialize the task list
-            plugin.getLogger().info("Offloading " + itemsPerClient + " items to client " + client.playerId);
-        }
+    public void registerClient(UUID playerId, double cpuCapability) {
+        plugin.getModEnforcer().registerClient(playerId, cpuCapability);
     }
 
-    public boolean isClientStrongEnough(UUID playerId) {
-        ClientInfo info = connectedClients.get(playerId);
-        return info != null && info.cpuCapability >= config.getClientCpuThreshold();
+    /**
+     * Check if a Java client is capable of handling offloaded work.
+     */
+    public boolean isClientCapable(UUID playerId) {
+        ModEnforcer.ClientInfo info = plugin.getModEnforcer().getRegisteredClients().get(playerId);
+        if (info == null) return false;
+        return info.cpuCapability >= config.getClientCpuThreshold();
     }
 }

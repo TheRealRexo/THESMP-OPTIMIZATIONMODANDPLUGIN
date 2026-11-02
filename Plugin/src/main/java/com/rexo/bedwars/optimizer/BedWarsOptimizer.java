@@ -4,18 +4,15 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * BedWarsOptimizer — CPU profiler + client-side load offload.
+ * BedWarsOptimizer — CPU profiler + dynamic client-side load offload.
  *
- * Replaces the old BWOptimizer which deleted all villagers every tick
- * (TeamCleaner.tick → Villager.remove()) and turned iron/gold/emerald
- * blocks into air in y=40-80. This new plugin does NOT touch entities
- * or blocks. It only profiles CPU hotspots and reports them to clients
- * that have spare CPU, which then run the heavy work locally.
+ * Java clients with the mod: receive offloaded work based on ping/CPU capability
+ * Bedrock clients: handled server-side (no mod required, no kicking)
+ *
+ * Work is dynamically split using: client ping, server TPS, RAM usage
  */
 public class BedWarsOptimizer extends JavaPlugin {
 
@@ -44,19 +41,15 @@ public class BedWarsOptimizer extends JavaPlugin {
         reportManager.enable();
         clientComm.enable();
 
-        // Client mod enforcement (kick players without the mod)
-        if (config.isModEnforcementEnabled()) {
-            getServer().getPluginManager().registerEvents(modEnforcer, this);
-            getLogger().info("Client mod enforcement ENABLED (grace period: " +
-                config.getModGracePeriodTicks() + " ticks)");
-        } else {
-            getLogger().info("Client mod enforcement disabled");
-        }
+        // Register event listeners (mod registration, not enforcement)
+        getServer().getPluginManager().registerEvents(modEnforcer, this);
 
-        // Register command for manual profiling
+        getLogger().info("BedWarsOptimizer v1.0.0 enabled — profiling: " + config.getProfileMode()
+                + " | offload: " + config.isOffloadEnabled()
+                + " | threshold: " + config.getClientCpuThreshold());
+
+        // Register command
         getCommand("bwopt").setExecutor(new OptimizerCommand(this));
-
-        getLogger().info("BedWarsOptimizer v1.0.0 enabled — profiling mode: " + config.getProfileMode());
     }
 
     @Override

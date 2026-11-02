@@ -1,6 +1,7 @@
 # BedWarsOptimizer v1.0 Configuration
-# This replaces the old BWOptimizer which deleted villagers and replaced blocks with air.
-# This version profiles CPU hotspots and offloads work to strong clients.
+# CPU profiler + dynamic client-side load offload for BedWars servers.
+# Java clients with the mod receive offloaded work; Bedrock clients are
+# handled server-side (no mod required, no kicking).
 
 # --- Profiling ---
 profile:
@@ -8,7 +9,7 @@ profile:
   interval-ticks: 20
   # What to profile: "entity", "tile", "both"
   mode: both
-  # An entity/tile is "hot" if it averages above this many CPU ticks
+  # An entity/tile is "hot" if it averages above this many CPU-tick samples
   hot-threshold-ticks: 10
   # Number of entities to sample per profile cycle
   entity-sample-size: 100
@@ -27,16 +28,20 @@ profile:
     mob-spawners: true
     signs: true
 
-# --- Reporting ---
+# --- Dynamic Load Offload ---
 report:
-  # How often to generate reports (in seconds)
+  # How often to emit summary reports (in seconds)
   interval-seconds: 30
-  # Minimum client CPU capability to consider "strong" (0.0-1.0)
+  # Minimum client ping-based CPU capability to receive offload tasks (0.0-1.0)
+  # Higher = only strong PC clients get work (lower ping players tend to be stronger)
   client-cpu-threshold: 0.6
-  # Enable CPU offload to strong clients
+  # Enable dynamic load offload to capable Java clients
   offload-enabled: true
-  # Maximum offloaded items per tick per client
+  # Maximum base offload items per tick per capable client
+  # Actual share scales up when server load is high
   max-offload-per-tick: 50
+  # How often to recalculate the load split (in seconds)
+  poll-interval-seconds: 5
 
 # --- Auto-throttle (safe — only changes view/sim distance) ---
 auto-throttle:
@@ -49,14 +54,3 @@ tnt-void:
   restrict: true
   void-threshold-y: 16
   blast-radius: 5.0
-
-# --- Client Mod Enforcement ---
-# Players must have the BedWarsOptimizer client mod installed to join.
-# Those who don't get a grace period to install it before being kicked.
-mod-enforcement:
-  # Whether enforcement is active
-  enabled: true
-  # Grace period in ticks (20 ticks = 1 second). 600 = 30 seconds.
-  grace-period-ticks: 600
-  # Message shown when a player is kicked for not having the mod
-  kick-message: "&c&lBedWarsOptimizer&7 requires the client mod to join.\n&7Install it from: &bgithub.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN"

@@ -4,50 +4,50 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 /**
  * Configuration for the BedWarsOptimizer plugin.
- * Replaces the old BWOptimizer config — no more villager deletion or block replacement.
+ *
+ * Key features:
+ *   - CPU profiling for entities and tile entities
+ *   - Dynamic load offload to capable Java clients (Bedrock players are exempt)
+ *   - TPS-based auto-throttle (safe — only adjusts view/sim distance)
  */
 public class ProfilerConfig {
     private final FileConfiguration config;
 
-    // Profiling
+    // ── Profiling ────────────────────────────────────────────────────────────────
     private final int profileIntervalTicks;
-    private final String profileMode; // "entity", "tile", "both"
-    private final int hotThresholdTicks; // entity/tile active this many ticks = "hot"
-
-    // Reporting
-    private final int reportIntervalSeconds;
-    private final double clientCpuThreshold; // 0.0-1.0, client CPU usage to consider "strong"
-    private final boolean offloadEnabled;
-    private final int maxOffloadPerTick;
+    private final String profileMode;
+    private final int hotThresholdTicks;
 
     // Entity profiling
-    private final int entitySampleSize; // entities to profile per tick
+    private final int entitySampleSize;
     private final boolean profileVillagers;
     private final boolean profileMonsters;
     private final boolean profileAnimals;
     private final boolean profileItems;
 
     // Tile profiling
-    private final int tileSampleSize; // chunks to profile per tick
+    private final int tileSampleSize;
     private final boolean profileRedstone;
     private final boolean profileHoppers;
     private final boolean profileMobSpawners;
     private final boolean profileSigns;
 
-    // Auto-throttle (replaces old auto-throttle but WITHOUT entity deletion)
+    // ── Dynamic Load Offload ─────────────────────────────────────────────────────
+    private final int reportIntervalSeconds;
+    private final double clientCpuThreshold;   // min ping-based cpu cap to receive offload
+    private final boolean offloadEnabled;
+    private final int maxOffloadPerTick;       // base share per client per cycle
+    private final int pollIntervalSeconds;     // how often to recalculate load split
+
+    // ── Auto-throttle ────────────────────────────────────────────────────────────
     private final boolean autoThrottle;
     private final double tpsThreshold;
     private final int ramThresholdPercent;
 
-    // TNT void restriction (kept from old plugin — this is safe)
+    // ── TNT void restriction ─────────────────────────────────────────────────────
     private final boolean restrictTntNearVoid;
     private final int voidThresholdY;
     private final double tntBlastRadius;
-
-    // Mod enforcement
-    private final boolean modEnforcementEnabled;
-    private final int modGracePeriodTicks;
-    private final String modKickMessage;
 
     public ProfilerConfig(FileConfiguration config) {
         this.config = config;
@@ -56,12 +56,6 @@ public class ProfilerConfig {
         this.profileIntervalTicks = config.getInt("profile.interval-ticks", 20);
         this.profileMode = config.getString("profile.mode", "both");
         this.hotThresholdTicks = config.getInt("profile.hot-threshold-ticks", 10);
-
-        // Reporting
-        this.reportIntervalSeconds = config.getInt("report.interval-seconds", 30);
-        this.clientCpuThreshold = config.getDouble("report.client-cpu-threshold", 0.6);
-        this.offloadEnabled = config.getBoolean("report.offload-enabled", true);
-        this.maxOffloadPerTick = config.getInt("report.max-offload-per-tick", 50);
 
         // Entity profiling
         this.entitySampleSize = config.getInt("profile.entity-sample-size", 100);
@@ -77,31 +71,28 @@ public class ProfilerConfig {
         this.profileMobSpawners = config.getBoolean("profile.tile.mob-spawners", true);
         this.profileSigns = config.getBoolean("profile.tile.signs", true);
 
-        // Auto-throttle (safe — only adjusts view/sim distance, never deletes entities)
+        // Dynamic load offload
+        this.reportIntervalSeconds = config.getInt("report.interval-seconds", 30);
+        this.clientCpuThreshold = config.getDouble("report.client-cpu-threshold", 0.6);
+        this.offloadEnabled = config.getBoolean("report.offload-enabled", true);
+        this.maxOffloadPerTick = config.getInt("report.max-offload-per-tick", 50);
+        this.pollIntervalSeconds = config.getInt("report.poll-interval-seconds", 5);
+
+        // Auto-throttle
         this.autoThrottle = config.getBoolean("auto-throttle.enabled", true);
         this.tpsThreshold = config.getDouble("auto-throttle.tps-threshold", 18.0);
         this.ramThresholdPercent = config.getInt("auto-throttle.ram-threshold-percent", 80);
 
-        // TNT void restriction (kept from old plugin)
+        // TNT void restriction
         this.restrictTntNearVoid = config.getBoolean("tnt-void.restrict", true);
         this.voidThresholdY = config.getInt("tnt-void.void-threshold-y", 16);
         this.tntBlastRadius = config.getDouble("tnt-void.blast-radius", 5.0);
-
-        // Mod enforcement
-        this.modEnforcementEnabled = config.getBoolean("mod-enforcement.enabled", true);
-        this.modGracePeriodTicks = config.getInt("mod-enforcement.grace-period-ticks", 600);
-        this.modKickMessage = config.getString("mod-enforcement.kick-message",
-            "&c&lBedWarsOptimizer&7 requires the client mod to join.");
     }
 
-    // Getters
+    // ── Profiling getters ────────────────────────────────────────────────────────
     public int getProfileIntervalTicks() { return profileIntervalTicks; }
     public String getProfileMode() { return profileMode; }
     public int getHotThresholdTicks() { return hotThresholdTicks; }
-    public int getReportIntervalSeconds() { return reportIntervalSeconds; }
-    public double getClientCpuThreshold() { return clientCpuThreshold; }
-    public boolean isOffloadEnabled() { return offloadEnabled; }
-    public int getMaxOffloadPerTick() { return maxOffloadPerTick; }
     public int getEntitySampleSize() { return entitySampleSize; }
     public boolean isProfileVillagers() { return profileVillagers; }
     public boolean isProfileMonsters() { return profileMonsters; }
@@ -112,15 +103,21 @@ public class ProfilerConfig {
     public boolean isProfileHoppers() { return profileHoppers; }
     public boolean isProfileMobSpawners() { return profileMobSpawners; }
     public boolean isProfileSigns() { return profileSigns; }
+
+    // ── Dynamic offload getters ──────────────────────────────────────────────────
+    public int getReportIntervalSeconds() { return reportIntervalSeconds; }
+    public double getClientCpuThreshold() { return clientCpuThreshold; }
+    public boolean isOffloadEnabled() { return offloadEnabled; }
+    public int getMaxOffloadPerTick() { return maxOffloadPerTick; }
+    public int getPollIntervalSeconds() { return pollIntervalSeconds; }
+
+    // ── Auto-throttle getters ────────────────────────────────────────────────────
     public boolean isAutoThrottle() { return autoThrottle; }
     public double getTpsThreshold() { return tpsThreshold; }
     public int getRamThresholdPercent() { return ramThresholdPercent; }
+
+    // ── TNT void getters ─────────────────────────────────────────────────────────
     public boolean isRestrictTntNearVoid() { return restrictTntNearVoid; }
     public int getVoidThresholdY() { return voidThresholdY; }
     public double getTntBlastRadius() { return tntBlastRadius; }
-
-    // Mod enforcement getters
-    public boolean isModEnforcementEnabled() { return modEnforcementEnabled; }
-    public int getModGracePeriodTicks() { return modGracePeriodTicks; }
-    public String getModKickMessage() { return modKickMessage; }
 }
