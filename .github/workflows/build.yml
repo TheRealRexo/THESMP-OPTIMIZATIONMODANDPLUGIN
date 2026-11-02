@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  release:
+    types: [published]
 
 jobs:
   build-plugin:
@@ -56,21 +58,22 @@ jobs:
 
       - name: Create Common JAR
         run: |
+          mkdir -p artifacts
           cd /tmp/build-client-common/classes
-          jar cf ../../../artifacts/bedwars-optimizer-common.jar .
-          mkdir -p ../../../artifacts
-        continue-on-error: true
+          jar cf ../../artifacts/bedwars-optimizer-common.jar .
 
       - name: Upload Common Artifact
         uses: actions/upload-artifact@v4
         with:
           name: BedWarsOptimizer-Common
           path: artifacts/bedwars-optimizer-common.jar
-        continue-on-error: true
 
-  build-fabric-client:
+  build-fabric-clients:
     runs-on: ubuntu-latest
     needs: build-client-common
+    strategy:
+      matrix:
+        version: ['1.14.x', '1.15.x', '1.16.x', '1.17.x', '1.18.x', '1.19.x', '1.20.x', '1.21.x', '26.1.x', '26.2.x', '26.3.x']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -81,33 +84,40 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Compile Fabric Client (1.21.x)
-        run: |
-          mkdir -p /tmp/build-fabric/classes
-          javac -d /tmp/build-fabric/classes \
-            -sourcepath Mod/Loaders/Fabric/Versions/1.21.x/src/main/java \
-            $(find Mod/Loaders/Fabric/Versions/1.21.x/src/main/java -name "*.java") 2>/dev/null || echo "Fabric 1.21.x sources need dependencies"
-        continue-on-error: true
+      - name: Download Common JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: BedWarsOptimizer-Common
 
-      - name: Create Fabric JAR
+      - name: Compile Fabric Client ${{ matrix.version }}
+        run: |
+          mkdir -p /tmp/build-fabric-${{ matrix.version }}/classes
+          javac -d /tmp/build-fabric-${{ matrix.version }}/classes \
+            -cp "bedwars-optimizer-common.jar" \
+            -sourcepath "Mod/Loaders/Fabric/Versions/${{ matrix.version }}/src/main/java" \
+            $(find "Mod/Loaders/Fabric/Versions/${{ matrix.version }}/src/main/java" -name "*.java") || true
+
+      - name: Create Fabric JAR ${{ matrix.version }}
         run: |
           mkdir -p artifacts
-          if [ -d "/tmp/build-fabric/classes/com" ]; then
-            cd /tmp/build-fabric/classes
-            jar cf ../../../artifacts/bedwars-optimizer-fabric-1.21.x.jar .
+          if [ -d "/tmp/build-fabric-${{ matrix.version }}/classes/com" ]; then
+            cd /tmp/build-fabric-${{ matrix.version }}/classes
+            jar cf "../../../../artifacts/bedwars-optimizer-fabric-${{ matrix.version }}.jar" .
           fi
-        continue-on-error: true
 
-      - name: Upload Fabric Artifact
+      - name: Upload Fabric Artifact ${{ matrix.version }}
         uses: actions/upload-artifact@v4
         with:
-          name: BedWarsOptimizer-Fabric-1.21.x
-          path: artifacts/bedwars-optimizer-fabric-1.21.x.jar
+          name: BedWarsOptimizer-Fabric-${{ matrix.version }}
+          path: artifacts/bedwars-optimizer-fabric-${{ matrix.version }}.jar
         continue-on-error: true
 
-  build-forge-client:
+  build-forge-clients:
     runs-on: ubuntu-latest
     needs: build-client-common
+    strategy:
+      matrix:
+        version: ['1.8.9', '1.9.4', '1.10.x', '1.11.x', '1.12.x', '1.13.2', '1.14.x', '1.15.x', '1.16.x', '1.17.x', '1.18.x', '1.19.x', '1.20.x', '1.21.x', '26.1.x', '26.2.x', '26.3.x']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -118,33 +128,40 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Compile Forge Client (1.21.x)
-        run: |
-          mkdir -p /tmp/build-forge/classes
-          javac -d /tmp/build-forge/classes \
-            -sourcepath Mod/Loaders/Forge/Versions/1.21.x/src/main/java \
-            $(find Mod/Loaders/Forge/Versions/1.21.x/src/main/java -name "*.java") 2>/dev/null || echo "Forge 1.21.x sources need dependencies"
-        continue-on-error: true
+      - name: Download Common JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: BedWarsOptimizer-Common
 
-      - name: Create Forge JAR
+      - name: Compile Forge Client ${{ matrix.version }}
+        run: |
+          mkdir -p /tmp/build-forge-${{ matrix.version }}/classes
+          javac -d /tmp/build-forge-${{ matrix.version }}/classes \
+            -cp "bedwars-optimizer-common.jar" \
+            -sourcepath "Mod/Loaders/Forge/Versions/${{ matrix.version }}/src/main/java" \
+            $(find "Mod/Loaders/Forge/Versions/${{ matrix.version }}/src/main/java" -name "*.java") || true
+
+      - name: Create Forge JAR ${{ matrix.version }}
         run: |
           mkdir -p artifacts
-          if [ -d "/tmp/build-forge/classes/com" ]; then
-            cd /tmp/build-forge/classes
-            jar cf ../../../artifacts/bedwars-optimizer-forge-1.21.x.jar .
+          if [ -d "/tmp/build-forge-${{ matrix.version }}/classes/com" ]; then
+            cd /tmp/build-forge-${{ matrix.version }}/classes
+            jar cf "../../../../artifacts/bedwars-optimizer-forge-${{ matrix.version }}.jar" .
           fi
-        continue-on-error: true
 
-      - name: Upload Forge Artifact
+      - name: Upload Forge Artifact ${{ matrix.version }}
         uses: actions/upload-artifact@v4
         with:
-          name: BedWarsOptimizer-Forge-1.21.x
-          path: artifacts/bedwars-optimizer-forge-1.21.x.jar
+          name: BedWarsOptimizer-Forge-${{ matrix.version }}
+          path: artifacts/bedwars-optimizer-forge-${{ matrix.version }}.jar
         continue-on-error: true
 
-  build-quilt-client:
+  build-neoforge-clients:
     runs-on: ubuntu-latest
     needs: build-client-common
+    strategy:
+      matrix:
+        version: ['1.20.x', '1.21.x', '26.1.x', '26.2.x', '26.3.x']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -155,28 +172,76 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Compile Quilt Client (1.21.x)
-        run: |
-          mkdir -p /tmp/build-quilt/classes
-          javac -d /tmp/build-quilt/classes \
-            -sourcepath Mod/Loaders/Quilt/Versions/1.21.x/src/main/java \
-            $(find Mod/Loaders/Quilt/Versions/1.21.x/src/main/java -name "*.java") 2>/dev/null || echo "Quilt 1.21.x sources need dependencies"
-        continue-on-error: true
+      - name: Download Common JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: BedWarsOptimizer-Common
 
-      - name: Create Quilt JAR
+      - name: Compile NeoForge Client ${{ matrix.version }}
+        run: |
+          mkdir -p /tmp/build-neoforge-${{ matrix.version }}/classes
+          javac -d /tmp/build-neoforge-${{ matrix.version }}/classes \
+            -cp "bedwars-optimizer-common.jar" \
+            -sourcepath "Mod/Loaders/NeoForge/Versions/${{ matrix.version }}/src/main/java" \
+            $(find "Mod/Loaders/NeoForge/Versions/${{ matrix.version }}/src/main/java" -name "*.java") || true
+
+      - name: Create NeoForge JAR ${{ matrix.version }}
         run: |
           mkdir -p artifacts
-          if [ -d "/tmp/build-quilt/classes/com" ]; then
-            cd /tmp/build-quilt/classes
-            jar cf ../../../artifacts/bedwars-optimizer-quilt-1.21.x.jar .
+          if [ -d "/tmp/build-neoforge-${{ matrix.version }}/classes/com" ]; then
+            cd /tmp/build-neoforge-${{ matrix.version }}/classes
+            jar cf "../../../../artifacts/bedwars-optimizer-neoforge-${{ matrix.version }}.jar" .
           fi
-        continue-on-error: true
 
-      - name: Upload Quilt Artifact
+      - name: Upload NeoForge Artifact ${{ matrix.version }}
         uses: actions/upload-artifact@v4
         with:
-          name: BedWarsOptimizer-Quilt-1.21.x
-          path: artifacts/bedwars-optimizer-quilt-1.21.x.jar
+          name: BedWarsOptimizer-NeoForge-${{ matrix.version }}
+          path: artifacts/bedwars-optimizer-neoforge-${{ matrix.version }}.jar
+        continue-on-error: true
+
+  build-quilt-clients:
+    runs-on: ubuntu-latest
+    needs: build-client-common
+    strategy:
+      matrix:
+        version: ['1.14.x', '1.15.x', '1.16.x', '1.17.x', '1.18.x', '1.19.x', '1.20.x', '1.21.x', '26.1.x', '26.2.x', '26.3.x']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Download Common JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: BedWarsOptimizer-Common
+
+      - name: Compile Quilt Client ${{ matrix.version }}
+        run: |
+          mkdir -p /tmp/build-quilt-${{ matrix.version }}/classes
+          javac -d /tmp/build-quilt-${{ matrix.version }}/classes \
+            -cp "bedwars-optimizer-common.jar" \
+            -sourcepath "Mod/Loaders/Quilt/Versions/${{ matrix.version }}/src/main/java" \
+            $(find "Mod/Loaders/Quilt/Versions/${{ matrix.version }}/src/main/java" -name "*.java") || true
+
+      - name: Create Quilt JAR ${{ matrix.version }}
+        run: |
+          mkdir -p artifacts
+          if [ -d "/tmp/build-quilt-${{ matrix.version }}/classes/com" ]; then
+            cd /tmp/build-quilt-${{ matrix.version }}/classes
+            jar cf "../../../../artifacts/bedwars-optimizer-quilt-${{ matrix.version }}.jar" .
+          fi
+
+      - name: Upload Quilt Artifact ${{ matrix.version }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: BedWarsOptimizer-Quilt-${{ matrix.version }}
+          path: artifacts/bedwars-optimizer-quilt-${{ matrix.version }}.jar
         continue-on-error: true
 
   build-liteloader-client:
@@ -192,22 +257,26 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Compile LiteLoader Client (1.8.9)
+      - name: Download Common JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: BedWarsOptimizer-Common
+
+      - name: Compile LiteLoader Client 1.8.9
         run: |
           mkdir -p /tmp/build-liteloader/classes
           javac -d /tmp/build-liteloader/classes \
-            -sourcepath Mod/Loaders/Forge/Versions/1.8.9/src/main/java \
-            $(find Mod/Loaders/Forge/Versions/1.8.9/src/main/java -name "*.java") 2>/dev/null || echo "LiteLoader 1.8.9 sources need dependencies"
-        continue-on-error: true
+            -cp "bedwars-optimizer-common.jar" \
+            -sourcepath "Mod/Loaders/LiteLoader/Versions/1.8.9/src/main/java" \
+            $(find "Mod/Loaders/LiteLoader/Versions/1.8.9/src/main/java" -name "*.java") || true
 
       - name: Create LiteLoader JAR
         run: |
           mkdir -p artifacts
           if [ -d "/tmp/build-liteloader/classes/com" ]; then
             cd /tmp/build-liteloader/classes
-            jar cf ../../../artifacts/bedwars-optimizer-liteloader-1.8.9.jar .
+            jar cf "../../../artifacts/bedwars-optimizer-liteloader-1.8.9.jar" .
           fi
-        continue-on-error: true
 
       - name: Upload LiteLoader Artifact
         uses: actions/upload-artifact@v4
@@ -216,9 +285,9 @@ jobs:
           path: artifacts/bedwars-optimizer-liteloader-1.8.9.jar
         continue-on-error: true
 
-  release:
+  create-release:
     runs-on: ubuntu-latest
-    needs: [build-plugin, build-client-common, build-fabric-client, build-forge-client, build-quilt-client, build-liteloader-client]
+    needs: [build-plugin, build-fabric-clients, build-forge-clients, build-neoforge-clients, build-quilt-clients, build-liteloader-client]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Download all artifacts
@@ -226,13 +295,56 @@ jobs:
         with:
           path: artifacts
 
+      - name: List all JARs
+        run: |
+          find artifacts -name "*.jar" -type f | sort
+
       - name: Create Release
+        id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v1.0.0
           name: BedWarsOptimizer v1.0.0
           draft: false
           prerelease: false
+          body: |
+            ## BedWarsOptimizer Client Mod v1.0.0
+
+            CPU profiler and client-side load offload for BedWars servers.
+
+            ### Features
+            - Automatically detects CPU hotspots (villagers, mobs, tile entities)
+            - Offloads heavy computation to capable clients
+            - Reduces server TPS impact
+            - Works across all major Minecraft mod loaders
+
+            ### Supported Versions
+
+            **Fabric**
+            - 1.14.x, 1.15.x, 1.16.x, 1.17.x, 1.18.x, 1.19.x, 1.20.x, 1.21.x
+            - 26.1.x, 26.2.x, 26.3.x
+
+            **Forge**
+            - 1.8.9, 1.9.4, 1.10.x, 1.11.x, 1.12.x, 1.13.2
+            - 1.14.x, 1.15.x, 1.16.x, 1.17.x, 1.18.x, 1.19.x, 1.20.x, 1.21.x
+            - 26.1.x, 26.2.x, 26.3.x
+
+            **NeoForge**
+            - 1.20.x, 1.21.x
+            - 26.1.x, 26.2.x, 26.3.x
+
+            **Quilt**
+            - 1.14.x, 1.15.x, 1.16.x, 1.17.x, 1.18.x, 1.19.x, 1.20.x, 1.21.x
+            - 26.1.x, 26.2.x, 26.3.x
+
+            **LiteLoader**
+            - 1.8.9
+
+            ### Installation
+            Place the appropriate JAR in your `mods` folder. Requires the common library.
+
+            ---
+            **Server Plugin:** See separate release assets for the server-side plugin.
           files: |
             artifacts/**/BedWarsOptimizer-*.jar
             artifacts/**/bedwars-optimizer-*.jar

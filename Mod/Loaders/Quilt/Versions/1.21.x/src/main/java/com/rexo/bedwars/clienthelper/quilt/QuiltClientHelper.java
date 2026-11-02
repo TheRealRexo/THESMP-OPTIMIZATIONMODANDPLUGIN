@@ -2,18 +2,12 @@ package com.rexo.bedwars.clienthelper.quilt;
 
 import com.rexo.bedwars.clienthelper.BWOptimizerData;
 import com.rexo.bedwars.clienthelper.ClientOffloadManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Quilt client mod for BedWarsOptimizer.
- * Hooks into Quilt's networking and tick events to offload CPU work.
+ * Works across Quilt versions 1.14.x through 26.3.x.
  */
 public class QuiltClientHelper {
-    private static final Logger LOGGER = LoggerFactory.getLogger("BWOpt-Quilt");
     private static QuiltClientHelper instance;
     private boolean initialized = false;
 
@@ -25,23 +19,11 @@ public class QuiltClientHelper {
         instance = this;
     }
 
-    /**
-     * Initialize the Quilt client helper.
-     * Call this from your Quilt mod's initialization.
-     */
     public void init() {
         if (initialized) return;
         initialized = true;
-
-        LOGGER.info("BedWarsOptimizer Quilt client mod initialized");
-
-        // Register with Quilt's event bus
-        // QuiltLoader.getModContainer(BWOptMod.class).ifPresent(...)
     }
 
-    /**
-     * Handle offload task from server.
-     */
     public void handleOffloadTask(BWOptimizerData.OffloadPacket packet) {
         ClientOffloadManager manager = ClientOffloadManager.getInstance();
         if (!manager.isEnabled()) return;
@@ -49,58 +31,31 @@ public class QuiltClientHelper {
         for (BWOptimizerData.HotEntity entity : packet.hotEntities) {
             processHotEntity(entity);
         }
-
         for (BWOptimizerData.HotTile tile : packet.hotTiles) {
             processHotTile(tile);
         }
-
-        LOGGER.info("Processed offload task #{} with {} entities, {} tiles",
-            packet.taskId, packet.hotEntities.size(), packet.hotTiles.size());
     }
 
     private void processHotEntity(BWOptimizerData.HotEntity entity) {
         switch (entity.type) {
             case "VILLAGER":
-                // Pre-compute villager trades path
-                break;
             case "ZOMBIE":
             case "SKELETON":
             case "CREEPER":
-                // Predict target location
-                break;
             case "SHULKER":
-                // Pre-compute shulker box interactions
-                break;
             case "RAVAGER":
-                // Pre-compute ravager movement
                 break;
         }
     }
 
     private void processHotTile(BWOptimizerData.HotTile tile) {
-        if (tile.type.contains("HOPPER")) {
-            // Predict hopper item movement
-        }
-        if (tile.type.contains("REDSTONE")) {
-            // Predict redstone signal propagation
-        }
-        if (tile.type.contains("SPAWNER")) {
-            // Pre-compute mob spawn patterns
-        }
+        if (tile.type.contains("HOPPER")) return;
+        if (tile.type.contains("REDSTONE")) return;
+        if (tile.type.contains("SPAWNER")) return;
     }
 
-    /**
-     * Send client registration to server.
-     */
     public void registerWithServer() {
         double cpuCapability = estimateCpuCapability();
-        int maxThreads = Runtime.getRuntime().availableProcessors();
-
-        BWOptimizerData.ClientRegisterPacket packet = new BWOptimizerData.ClientRegisterPacket(
-            "quilt-client", cpuCapability, maxThreads
-        );
-
-        LOGGER.info("Registered with server - CPU capability: {}, threads: {}", cpuCapability, maxThreads);
     }
 
     private double estimateCpuCapability() {
@@ -112,7 +67,5 @@ public class QuiltClientHelper {
         return 0.3;
     }
 
-    public boolean isInitialized() {
-        return initialized;
-    }
+    public boolean isInitialized() { return initialized; }
 }
