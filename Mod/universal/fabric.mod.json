@@ -13,7 +13,9 @@
   "icon": "assets/bedwars-optimizer/icon.png",
   "environment": "*",
   "entrypoints": {
-    "fabricclient": ["com.rexo.bedwars.clienthelper.fabric.FabricClientHelper"]
+    "main": ["com.rexo.bedwars.clienthelper.fabric.FabricClientHelper"],
+    "client": ["com.rexo.bedwars.clienthelper.fabric.FabricClientHelper"],
+    "modmenu": ["com.rexo.bedwars.clienthelper.fabric.FabricClientHelper"]
   },
   "mixins": [],
   "depends": {

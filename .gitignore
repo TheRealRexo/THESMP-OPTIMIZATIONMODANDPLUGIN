@@ -1,0 +1,14 @@
+# Build artifacts
+1.0.0/
+Mod/build/
+*.jar
+!Mod/bedwars-optimizer-common.jar
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
