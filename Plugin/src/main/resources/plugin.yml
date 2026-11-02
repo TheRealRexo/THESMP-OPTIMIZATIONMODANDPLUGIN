@@ -9,3 +9,7 @@ description: >-
 prefix: BWOPT
 default-enabled: true
 loadbefore: [BedWars1058, UltraCosmetics]
+required-mods: [bedwars-optimizer]
+mod-enforcement:
+  grace-period-ticks: 600
+  kick-message: "&c&lBedWarsOptimizer&7 requires the client mod to join.\n&7Install it from: &bgithub.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN"

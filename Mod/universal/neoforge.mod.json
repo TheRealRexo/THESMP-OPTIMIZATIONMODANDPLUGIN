@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "modId": "bedwarsoptimizer",
+  "version": "1.0.0",
+  "displayName": "BedWarsOptimizer Client Mod",
+  "description": "Improves server-client performance when joining the BedWars server.",
+  "authors": ["TheRealRexo"],
+  "logoFile": "",
+  "credits": "",
+  "displayUrl": "",
+  "logoFile": "",
+  "modListEntry": "",
+  "parentMod": "",
+  "dependencies": [],
+  "requires": [],
+  "clientOnly": true,
+  "serverOnly": false
+}

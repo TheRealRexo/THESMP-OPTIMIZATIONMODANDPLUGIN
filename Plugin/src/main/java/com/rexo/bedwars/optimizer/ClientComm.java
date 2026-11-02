@@ -90,6 +90,11 @@ public class ClientComm {
     public void registerClient(UUID playerId, double cpuCapability) {
         connectedClients.put(playerId, new ClientInfo(playerId, cpuCapability));
         plugin.getLogger().info("Client registered: " + playerId + " (cpu: " + String.format("%.2f", cpuCapability) + ")");
+
+        // Notify the mod enforcer that this player has the client mod
+        if (plugin.getModEnforcer() != null) {
+            plugin.getModEnforcer().registerClient(playerId);
+        }
     }
 
     public void unregisterClient(UUID playerId) {

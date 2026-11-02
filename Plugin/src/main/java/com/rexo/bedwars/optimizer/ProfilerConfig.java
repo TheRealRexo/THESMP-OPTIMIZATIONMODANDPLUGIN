@@ -44,6 +44,11 @@ public class ProfilerConfig {
     private final int voidThresholdY;
     private final double tntBlastRadius;
 
+    // Mod enforcement
+    private final boolean modEnforcementEnabled;
+    private final int modGracePeriodTicks;
+    private final String modKickMessage;
+
     public ProfilerConfig(FileConfiguration config) {
         this.config = config;
 
@@ -81,6 +86,12 @@ public class ProfilerConfig {
         this.restrictTntNearVoid = config.getBoolean("tnt-void.restrict", true);
         this.voidThresholdY = config.getInt("tnt-void.void-threshold-y", 16);
         this.tntBlastRadius = config.getDouble("tnt-void.blast-radius", 5.0);
+
+        // Mod enforcement
+        this.modEnforcementEnabled = config.getBoolean("mod-enforcement.enabled", true);
+        this.modGracePeriodTicks = config.getInt("mod-enforcement.grace-period-ticks", 600);
+        this.modKickMessage = config.getString("mod-enforcement.kick-message",
+            "&c&lBedWarsOptimizer&7 requires the client mod to join.");
     }
 
     // Getters
@@ -107,4 +118,9 @@ public class ProfilerConfig {
     public boolean isRestrictTntNearVoid() { return restrictTntNearVoid; }
     public int getVoidThresholdY() { return voidThresholdY; }
     public double getTntBlastRadius() { return tntBlastRadius; }
+
+    // Mod enforcement getters
+    public boolean isModEnforcementEnabled() { return modEnforcementEnabled; }
+    public int getModGracePeriodTicks() { return modGracePeriodTicks; }
+    public String getModKickMessage() { return modKickMessage; }
 }

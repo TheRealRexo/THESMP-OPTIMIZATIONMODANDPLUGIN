@@ -1,0 +1,35 @@
+{
+  "schema": "https://quiltmc.org/schema/qsl.quilt_mod_json.schema.json",
+  "quilt_loader": {
+    "group": "com.rexo.bedwars",
+    "id": "bedwars-optimizer",
+    "version": "1.0.0",
+    "metadata": {
+      "name": "BedWarsOptimizer Client Mod",
+      "description": "Improves server-client performance when joining the BedWars server.",
+      "authors": ["TheRealRexo"],
+      "contact": {},
+      "license": "MIT",
+      "icon": "assets/bedwars-optimizer/icon.png"
+    },
+    "intermediate": "common"
+  },
+  "entrypoints": {
+    "quilt_client": ["com.rexo.bedwars.clienthelper.quilt.QuiltClientHelper"]
+  },
+  "depends": [
+    {
+      "id": "quilt_loader",
+      "versions": ">=0.20.0"
+    },
+    {
+      "id": "quilted_fabric_api",
+      "versions": ">=0.20.0",
+      "optional": true
+    },
+    {
+      "id": "minecraft",
+      "versions": ">=1.14"
+    }
+  ]
+}

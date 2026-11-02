@@ -24,6 +24,7 @@ public class BedWarsOptimizer extends JavaPlugin {
     private Profiler profiler;
     private LoadReportManager reportManager;
     private ClientComm clientComm;
+    private ModEnforcer modEnforcer;
     private final AtomicLong totalEntities = new AtomicLong(0);
     private final AtomicLong hotEntities = new AtomicLong(0);
     private final AtomicLong hotTiles = new AtomicLong(0);
@@ -37,10 +38,20 @@ public class BedWarsOptimizer extends JavaPlugin {
         profiler = new Profiler(this, config);
         reportManager = new LoadReportManager(this, config);
         clientComm = new ClientComm(this, config, reportManager);
+        modEnforcer = new ModEnforcer(this, config);
 
         profiler.enable();
         reportManager.enable();
         clientComm.enable();
+
+        // Client mod enforcement (kick players without the mod)
+        if (config.isModEnforcementEnabled()) {
+            getServer().getPluginManager().registerEvents(modEnforcer, this);
+            getLogger().info("Client mod enforcement ENABLED (grace period: " +
+                config.getModGracePeriodTicks() + " ticks)");
+        } else {
+            getLogger().info("Client mod enforcement disabled");
+        }
 
         // Register command for manual profiling
         getCommand("bwopt").setExecutor(new OptimizerCommand(this));
@@ -62,6 +73,7 @@ public class BedWarsOptimizer extends JavaPlugin {
     public Profiler getProfiler() { return profiler; }
     public LoadReportManager getReportManager() { return reportManager; }
     public ClientComm getClientComm() { return clientComm; }
+    public ModEnforcer getModEnforcer() { return modEnforcer; }
     public long getTotalEntities() { return totalEntities.get(); }
     public long getHotEntities() { return hotEntities.get(); }
     public long getHotTiles() { return hotTiles.get(); }

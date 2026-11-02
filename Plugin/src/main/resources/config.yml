@@ -49,3 +49,14 @@ tnt-void:
   restrict: true
   void-threshold-y: 16
   blast-radius: 5.0
+
+# --- Client Mod Enforcement ---
+# Players must have the BedWarsOptimizer client mod installed to join.
+# Those who don't get a grace period to install it before being kicked.
+mod-enforcement:
+  # Whether enforcement is active
+  enabled: true
+  # Grace period in ticks (20 ticks = 1 second). 600 = 30 seconds.
+  grace-period-ticks: 600
+  # Message shown when a player is kicked for not having the mod
+  kick-message: "&c&lBedWarsOptimizer&7 requires the client mod to join.\n&7Install it from: &bgithub.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN"
