@@ -236,12 +236,11 @@ jobs:
           body: |
             ## BedWarsOptimizer Client Mod v1.0.0
 
-            CPU profiler and client-side load offload for BedWars servers.
+            Improves server-client performance when joining the BedWars server.
 
             ### Features
-            - Automatically detects CPU hotspots (villagers, mobs, tile entities)
-            - Offloads heavy computation to capable clients
-            - Reduces server TPS impact
+            - Optimizes client-side processing to reduce lag spikes
+            - Smoother gameplay during peak server load
             - Works across all major Minecraft mod loaders
 
             ### Supported Versions
