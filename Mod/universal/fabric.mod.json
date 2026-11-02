@@ -22,11 +22,5 @@
     "java": ">=17",
     "modmenu": ">=7.0.0"
   },
-  "custom": {
-    "modmenu": {
-      "modId": "bedwars-optimizer",
-      "parent": "root",
-      "badges": ["optional"]
-    }
-  }
+  "custom": {}
 }
