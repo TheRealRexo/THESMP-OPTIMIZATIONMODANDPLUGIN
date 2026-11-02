@@ -1,0 +1,51 @@
+# BedWarsOptimizer v2.0 Configuration
+# This replaces the old BWOptimizer which deleted villagers and replaced blocks with air.
+# This version profiles CPU hotspots and offloads work to strong clients.
+
+# --- Profiling ---
+profile:
+  # How often to run a profiling cycle (in ticks)
+  interval-ticks: 20
+  # What to profile: "entity", "tile", "both"
+  mode: both
+  # An entity/tile is "hot" if it averages above this many CPU ticks
+  hot-threshold-ticks: 10
+  # Number of entities to sample per profile cycle
+  entity-sample-size: 100
+  # Which entity types to profile
+  entity:
+    villagers: true
+    monsters: true
+    animals: true
+    items: true
+  # Number of chunks to sample for tile profiling
+  tile-sample-size: 20
+  # Which tile types to profile
+  tile:
+    redstone: true
+    hoppers: true
+    mob-spawners: true
+    signs: true
+
+# --- Reporting ---
+report:
+  # How often to generate reports (in seconds)
+  interval-seconds: 30
+  # Minimum client CPU capability to consider "strong" (0.0-1.0)
+  client-cpu-threshold: 0.6
+  # Enable CPU offload to strong clients
+  offload-enabled: true
+  # Maximum offloaded items per tick per client
+  max-offload-per-tick: 50
+
+# --- Auto-throttle (safe — only changes view/sim distance) ---
+auto-throttle:
+  enabled: true
+  tps-threshold: 18.0
+  ram-threshold-percent: 80
+
+# --- TNT void restriction (safe — prevents TNT gadget exploits) ---
+tnt-void:
+  restrict: true
+  void-threshold-y: 16
+  blast-radius: 5.0

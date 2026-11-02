@@ -1,0 +1,46 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+}
+
+group = 'com.rexo.bedwars'
+version = '2.0.0'
+
+repositories {
+    maven {
+        name = 'papermc'
+        url = 'https://repo.papermc.io/repository/maven-public/'
+    }
+    maven {
+        name = 'spigotmc'
+        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+    }
+}
+
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+    archiveBaseName.set('BedWarsOptimizer')
+    archiveVersion.set('2.0.0')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    from(sourceSets.main.output)
+    from(sourceSets.main.resources)
+    
+    manifest {
+        attributes(
+            'Main-Class': 'org.bukkit.craftbukkit.Main',
+            'Implementation-Title': 'BedWarsOptimizer',
+            'Implementation-Version': version
+        )
+    }
+    
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

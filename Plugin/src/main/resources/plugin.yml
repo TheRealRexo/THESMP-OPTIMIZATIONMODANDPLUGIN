@@ -1,0 +1,11 @@
+name: BedWarsOptimizer
+version: 2.0.0
+main: com.rexo.bedwars.optimizer.BedWarsOptimizer
+api-version: 1.21
+authors: [Rexo]
+description: >-
+  BedWars CPU profiler + client-side load offload.
+  Profiles hot entities/tiles and reports them to clients with spare CPU.
+prefix: BWOPT
+default-enabled: true
+loadbefore: [BedWars1058, UltraCosmetics]
