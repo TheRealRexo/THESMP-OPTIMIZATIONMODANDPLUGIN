@@ -64,7 +64,7 @@ public class LoadReportManager {
 
         // Build report
         StringBuilder report = new StringBuilder();
-        report.append("=== BedWarsOptimizer v2.0 Report #").append(reportCount).append(" ===\n");
+        report.append("=== BedWarsOptimizer v1.0 Report #").append(reportCount).append(" ===\n");
         report.append(String.format("TPS: %.2f | Entities: %d | Hot: %d\n",
             smoothedTps, totalEntities, hotEntityList.size() + hotTileList.size()));
         report.append(String.format("RAM: %.1f%% | Mode: %s\n",

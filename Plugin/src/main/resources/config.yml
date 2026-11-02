@@ -1,4 +1,4 @@
-# BedWarsOptimizer v2.0 Configuration
+# BedWarsOptimizer v1.0 Configuration
 # This replaces the old BWOptimizer which deleted villagers and replaced blocks with air.
 # This version profiles CPU hotspots and offloads work to strong clients.
 

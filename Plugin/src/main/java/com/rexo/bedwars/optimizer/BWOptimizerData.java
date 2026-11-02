@@ -59,7 +59,7 @@ public class BWOptimizerData implements Serializable {
             this.hotEntities = hotEntities != null ? hotEntities : new ArrayList<>();
             this.hotTiles = hotTiles != null ? hotTiles : new ArrayList<>();
             this.metadata = new HashMap<>();
-            metadata.put("version", "2.0");
+            metadata.put("version", "1.0");
             metadata.put("plugin", "BedWarsOptimizer");
         }
     }

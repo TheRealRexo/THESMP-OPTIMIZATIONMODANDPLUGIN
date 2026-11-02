@@ -45,7 +45,7 @@ public class BedWarsOptimizer extends JavaPlugin {
         // Register command for manual profiling
         getCommand("bwopt").setExecutor(new OptimizerCommand(this));
 
-        getLogger().info("BedWarsOptimizer v2.0.0 enabled — profiling mode: " + config.getProfileMode());
+        getLogger().info("BedWarsOptimizer v1.0.0 enabled — profiling mode: " + config.getProfileMode());
     }
 
     @Override
