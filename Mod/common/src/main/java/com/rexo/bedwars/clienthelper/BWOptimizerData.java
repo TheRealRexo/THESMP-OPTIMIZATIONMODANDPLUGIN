@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Common data structures for the BedWarsOptimizer client helper.
- * These are serialized and sent from the server plugin.
+ * Common data structures for the BedWarsOptimizer.
+ * These are serialized and sent from the server plugin to client mods.
  */
 public class BWOptimizerData {
 
@@ -19,8 +19,8 @@ public class BWOptimizerData {
         public final long entityId;
         public final String type;
         public final double x, y, z;
-        public final long profiledCpuTime; // microseconds
-        public final String offloadTask; // what client should calculate
+        public final long profiledCpuTime;
+        public final String offloadTask;
 
         public HotEntity(long entityId, String type, double x, double y, double z,
                         long profiledCpuTime, String offloadTask) {
@@ -79,7 +79,7 @@ public class BWOptimizerData {
      */
     public static class ClientRegisterPacket implements Serializable {
         public final String clientId;
-        public final double cpuCapability; // 0.0-1.0
+        public final double cpuCapability;
         public final int maxThreads;
         public final long timestamp;
 
@@ -97,7 +97,7 @@ public class BWOptimizerData {
     public static class TaskResult implements Serializable {
         public final int taskId;
         public final boolean success;
-        public final long resultCpuTime; // how long this client took
+        public final long resultCpuTime;
         public final Map<String, Object> resultData;
 
         public TaskResult(int taskId, boolean success, long resultCpuTime, Map<String, Object> resultData) {
@@ -108,10 +108,58 @@ public class BWOptimizerData {
         }
     }
 
+    /**
+     * Ping equalization packet — sent from server to each client.
+     *
+     * The server measures each client's real ping, then calculates an offset
+     * so that all clients experience equalized latency. The client mod applies
+     * this offset to hide the real ping and report 0ms.
+     */
+    public static class PingEqualizePacket implements Serializable {
+        public final long serverTimestamp;
+        public final int targetLatencyMs;
+        public final int compensationMs;
+        public final double jitterFactor;
+        public final boolean hidePing;
+        public final int serverAvgPingMs;
+        public final Map<String, Object> metadata;
+
+        public PingEqualizePacket(long serverTimestamp, int targetLatencyMs,
+                                  int compensationMs, double jitterFactor, boolean hidePing,
+                                  int serverAvgPingMs) {
+            this.serverTimestamp = serverTimestamp;
+            this.targetLatencyMs = targetLatencyMs;
+            this.compensationMs = compensationMs;
+            this.jitterFactor = jitterFactor;
+            this.hidePing = hidePing;
+            this.serverAvgPingMs = serverAvgPingMs;
+            this.metadata = new HashMap<>();
+            metadata.put("version", "2.0");
+            metadata.put("plugin", "BedWarsOptimizer");
+        }
+    }
+
+    /**
+     * Client ping report — sent from client mod back to server.
+     * Contains the client's measured real ping for verification.
+     */
+    public static class PingReportPacket implements Serializable {
+        public final String clientId;
+        public final int realPingMs;
+        public final int clientTickRate;
+        public final long timestamp;
+
+        public PingReportPacket(String clientId, int realPingMs, int clientTickRate) {
+            this.clientId = clientId;
+            this.realPingMs = realPingMs;
+            this.clientTickRate = clientTickRate;
+            this.timestamp = System.currentTimeMillis();
+        }
+    }
+
     // --- Helper methods ---
 
     public static HotEntity parseHotEntity(String line) {
-        // Parse format: "entityId:type:x:y:z:cpuTime:task"
         String[] parts = line.split(":");
         if (parts.length < 7) return null;
         try {

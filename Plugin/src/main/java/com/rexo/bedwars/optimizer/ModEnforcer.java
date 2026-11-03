@@ -146,6 +146,10 @@ public class ModEnforcer implements Listener {
      * Check if a player is a Bedrock (Geyser/Floodgate) player.
      * Returns false if Floodgate is not present (conservative: treat as Java).
      */
+    public boolean isBedrock(UUID uuid) {
+        return isBedrockPlayer(uuid);
+    }
+
     private boolean isBedrockPlayer(UUID uuid) {
         if (!floodgateAvailable) return false;
         try {

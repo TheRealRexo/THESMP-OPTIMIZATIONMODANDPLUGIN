@@ -2,14 +2,18 @@ package com.rexo.bedwars.clienthelper.forge;
 
 import com.rexo.bedwars.clienthelper.BWOptimizerData;
 import com.rexo.bedwars.clienthelper.ClientOffloadManager;
+import com.rexo.bedwars.clienthelper.PingEqualizerManager;
 
 /**
- * Forge client mod for BedWarsOptimizer.
- * Works across Forge versions 1.8.9 through 26.3.x.
+ * ForgeClientHelper for BedWarsOptimizer.
+ * Features:
+ *   - CPU offload task processing
+ *   - Ping equalization: hides real ping, applies server compensation
  */
 public class ForgeClientHelper {
     private static ForgeClientHelper instance;
     private boolean initialized = false;
+    private final PingEqualizerManager pingManager = PingEqualizerManager.getInstance();
 
     public static ForgeClientHelper getInstance() {
         return instance;
@@ -22,18 +26,37 @@ public class ForgeClientHelper {
     public void init() {
         if (initialized) return;
         initialized = true;
+        pingManager.init();
+        System.out.println("[BWOpt] ForgeClientHelper initialized — ping eq: " + pingManager.isActive());
     }
 
     public void handleOffloadTask(BWOptimizerData.OffloadPacket packet) {
         ClientOffloadManager manager = ClientOffloadManager.getInstance();
         if (!manager.isEnabled()) return;
-
         for (BWOptimizerData.HotEntity entity : packet.hotEntities) {
             processHotEntity(entity);
         }
         for (BWOptimizerData.HotTile tile : packet.hotTiles) {
             processHotTile(tile);
         }
+    }
+
+    public void handlePingEqualize(BWOptimizerData.PingEqualizePacket packet) {
+        pingManager.applyPingEqualization(packet);
+    }
+
+    public int getReportedPing() {
+        return pingManager.getReportedPing();
+    }
+
+    public long applyInputCompensation() {
+        return pingManager.applyInputCompensation();
+    }
+
+    public void sendPingReport(int realPingMs, int clientTickRate) {
+        BWOptimizerData.PingReportPacket report = new BWOptimizerData.PingReportPacket(
+                "java_client", realPingMs, clientTickRate);
+        System.out.println("[BWOpt] Ping report: " + report.realPingMs + "ms");
     }
 
     private void processHotEntity(BWOptimizerData.HotEntity entity) {
@@ -56,6 +79,7 @@ public class ForgeClientHelper {
 
     public void registerWithServer() {
         double cpuCapability = estimateCpuCapability();
+        System.out.println("[BWOpt] Registering with server (cpu: " + cpuCapability + ")");
     }
 
     private double estimateCpuCapability() {
@@ -68,4 +92,5 @@ public class ForgeClientHelper {
     }
 
     public boolean isInitialized() { return initialized; }
+    public PingEqualizerManager getPingManager() { return pingManager; }
 }

@@ -8,6 +8,7 @@ import org.bukkit.configuration.file.FileConfiguration;
  * Key features:
  *   - CPU profiling for entities and tile entities
  *   - Dynamic load offload to capable Java clients (Bedrock players are exempt)
+ *   - Ping equalization: server compensates for client latency differences
  *   - TPS-based auto-throttle (safe — only adjusts view/sim distance)
  */
 public class ProfilerConfig {
@@ -34,10 +35,17 @@ public class ProfilerConfig {
 
     // ── Dynamic Load Offload ─────────────────────────────────────────────────────
     private final int reportIntervalSeconds;
-    private final double clientCpuThreshold;   // min ping-based cpu cap to receive offload
+    private final double clientCpuThreshold;
     private final boolean offloadEnabled;
-    private final int maxOffloadPerTick;       // base share per client per cycle
-    private final int pollIntervalSeconds;     // how often to recalculate load split
+    private final int maxOffloadPerTick;
+    private final int pollIntervalSeconds;
+
+    // ── Ping Equalization ────────────────────────────────────────────────────────
+    private final boolean pingEqualizationEnabled;
+    private final int pingTargetLatencyMs;     // target equalized latency
+    private final int pingPollIntervalSeconds; // how often to recalculate
+    private final boolean pingHideEnabled;     // force-display 0ms ping
+    private final int pingMinSamples;          // min samples before trusting
 
     // ── Auto-throttle ────────────────────────────────────────────────────────────
     private final boolean autoThrottle;
@@ -78,6 +86,13 @@ public class ProfilerConfig {
         this.maxOffloadPerTick = config.getInt("report.max-offload-per-tick", 50);
         this.pollIntervalSeconds = config.getInt("report.poll-interval-seconds", 5);
 
+        // Ping equalization
+        this.pingEqualizationEnabled = config.getBoolean("ping-equalization.enabled", true);
+        this.pingTargetLatencyMs = config.getInt("ping-equalization.target-latency-ms", 15);
+        this.pingPollIntervalSeconds = config.getInt("ping-equalization.poll-interval-seconds", 3);
+        this.pingHideEnabled = config.getBoolean("ping-equalization.hide-ping", true);
+        this.pingMinSamples = config.getInt("ping-equalization.min-samples", 3);
+
         // Auto-throttle
         this.autoThrottle = config.getBoolean("auto-throttle.enabled", true);
         this.tpsThreshold = config.getDouble("auto-throttle.tps-threshold", 18.0);
@@ -110,6 +125,13 @@ public class ProfilerConfig {
     public boolean isOffloadEnabled() { return offloadEnabled; }
     public int getMaxOffloadPerTick() { return maxOffloadPerTick; }
     public int getPollIntervalSeconds() { return pollIntervalSeconds; }
+
+    // ── Ping equalization getters ────────────────────────────────────────────────
+    public boolean isPingEqualizationEnabled() { return pingEqualizationEnabled; }
+    public int getPingTargetLatencyMs() { return pingTargetLatencyMs; }
+    public int getPingPollIntervalSeconds() { return pingPollIntervalSeconds; }
+    public boolean isPingHideEnabled() { return pingHideEnabled; }
+    public int getPingMinSamples() { return pingMinSamples; }
 
     // ── Auto-throttle getters ────────────────────────────────────────────────────
     public boolean isAutoThrottle() { return autoThrottle; }

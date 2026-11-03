@@ -1,7 +1,10 @@
 # BedWarsOptimizer v1.0 Configuration
-# CPU profiler + dynamic client-side load offload for BedWars servers.
+# CPU profiler + dynamic client-side load offload + ping equalization.
 # Java clients with the mod receive offloaded work; Bedrock clients are
 # handled server-side (no mod required, no kicking).
+#
+# Ping equalization: the server measures each client's real ping and
+# calculates a compensation offset so all players feel like 0ms ping.
 
 # --- Profiling ---
 profile:
@@ -33,15 +36,28 @@ report:
   # How often to emit summary reports (in seconds)
   interval-seconds: 30
   # Minimum client ping-based CPU capability to receive offload tasks (0.0-1.0)
-  # Higher = only strong PC clients get work (lower ping players tend to be stronger)
   client-cpu-threshold: 0.6
   # Enable dynamic load offload to capable Java clients
   offload-enabled: true
   # Maximum base offload items per tick per capable client
-  # Actual share scales up when server load is high
   max-offload-per-tick: 50
   # How often to recalculate the load split (in seconds)
   poll-interval-seconds: 5
+
+# --- Ping Equalization ---
+# The server dynamically equalizes ping so all players feel smooth.
+ping-equalization:
+  # Enable ping equalization
+  enabled: true
+  # Target equalized latency in milliseconds (all clients feel this fast)
+  # Lower = feels faster, but needs more server-side compensation
+  target-latency-ms: 15
+  # How often to recalculate ping offsets (in seconds)
+  poll-interval-seconds: 3
+  # Force the client to display 0ms ping (hides real latency)
+  hide-ping: true
+  # Minimum ping samples before trusting a client's measurement
+  min-samples: 3
 
 # --- Auto-throttle (safe — only changes view/sim distance) ---
 auto-throttle:
