@@ -6,28 +6,37 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * ModEnforcer — manages client mod registration and dynamic load offload.
  *
- * Java clients with the mod: registered → receive offload tasks based on their ping/CPU capability
- * Bedrock clients (no mod): skipped entirely → no enforcement, no kicking
+ * Features (v1.1.0):
+ *   - Java clients with mod v1.1.0+: receive health display + offload tasks
+ *   - Java clients WITHOUT mod: kicked after grace period
+ *   - Bedrock clients: handled server-side, may receive offloaded Geyser processing
  *
  * Dynamically splits workload based on:
- *   - Client ping (inverse proxy for CPU capability)
  *   - Server TPS / load
  *   - Number of capable clients
  */
 public class ModEnforcer implements Listener {
 
+    private static final String MOD_VERSION = "1.1.0";
+    private static final int KICK_GRACE_SECONDS = 5;
+
     private final BedWarsOptimizer plugin;
     private final ProfilerConfig config;
     private final Map<UUID, ClientInfo> registeredClients = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> joinTime = new ConcurrentHashMap<>();
     private boolean floodgateAvailable = false;
+    private BukkitTask kickTask;
+    private final AtomicInteger geyserOffloadCount = new AtomicInteger(0);
 
     public ModEnforcer(BedWarsOptimizer plugin, ProfilerConfig config) {
         this.plugin = plugin;
@@ -36,9 +45,21 @@ public class ModEnforcer implements Listener {
         try {
             Class.forName("org.geysermc.floodgate.api.FloodgateApi");
             floodgateAvailable = true;
-            plugin.getLogger().info("Floodgate API detected — Bedrock players will be exempt from mod enforcement");
+            plugin.getLogger().info("Floodgate API detected — Bedrock detection active");
         } catch (ClassNotFoundException e) {
-            plugin.getLogger().warning("Floodgate API not found — unable to detect Bedrock players");
+            plugin.getLogger().warning("Floodgate API not found — Geyser players will be treated as Java");
+        }
+    }
+
+    public void enable() {
+        if (kickTask != null) return;
+        kickTask = plugin.getServer().getScheduler().runTaskTimer(plugin, this::checkKicks, 0, 20L * KICK_GRACE_SECONDS);
+    }
+
+    public void disable() {
+        if (kickTask != null) {
+            kickTask.cancel();
+            kickTask = null;
         }
     }
 
@@ -47,20 +68,46 @@ public class ModEnforcer implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
 
-        // Skip Bedrock players — they can't have the Java client mod
-        if (isBedrockPlayer(uuid)) {
-            plugin.getLogger().fine("Bedrock player detected: " + player.getName() + " — skipping mod enforcement");
+        joinTime.put(uuid, System.currentTimeMillis());
+
+        if (isBedrock(uuid)) {
+            plugin.getLogger().fine("Bedrock player joined: " + player.getName());
+            // Bedrock players can still receive offloaded work
             return;
         }
 
-        // Java players start unregistered; they self-register via ClientComm.registerClient()
-        plugin.getLogger().fine("Java player joined: " + player.getName() + " — waiting for mod handshake");
+        // Java player — check if they have the mod
+        if (!registeredClients.containsKey(uuid)) {
+            plugin.getLogger().warning("Java player without mod v" + MOD_VERSION + ": " + player.getName());
+        }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
         registeredClients.remove(uuid);
+        joinTime.remove(uuid);
+    }
+
+    /**
+     * Check if any Java players without the mod should be kicked.
+     */
+    private void checkKicks() {
+        long now = System.currentTimeMillis();
+
+        for (Map.Entry<UUID, Long> entry : joinTime.entrySet()) {
+            UUID uuid = entry.getKey();
+            Player player = plugin.getServer().getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
+            if (isBedrock(uuid)) continue;
+            if (registeredClients.containsKey(uuid)) continue;
+
+            long elapsed = (now - entry.getValue()) / 1000;
+            if (elapsed >= KICK_GRACE_SECONDS) {
+                player.kickPlayer("§c[BedWarsOptimizer] §7You must install mod v" + MOD_VERSION + " to play.");
+                plugin.getLogger().info("Kicked " + player.getName() + " — no mod v" + MOD_VERSION);
+            }
+        }
     }
 
     /**
@@ -68,19 +115,13 @@ public class ModEnforcer implements Listener {
      */
     public void registerClient(UUID playerId, double cpuCapability) {
         registeredClients.put(playerId, new ClientInfo(playerId, cpuCapability));
+        joinTime.remove(playerId);
         plugin.getLogger().info("Client mod registered: " + playerId + " (cpu: " + String.format("%.2f", cpuCapability) + ")");
 
         Player p = plugin.getServer().getPlayer(playerId);
         if (p != null) {
             p.sendMessage("§a§lBedWarsOptimizer §7— mod detected! Load optimization active.");
         }
-    }
-
-    /**
-     * Check if a player has the mod registered.
-     */
-    public boolean hasMod(UUID uuid) {
-        return registeredClients.containsKey(uuid);
     }
 
     /**
@@ -95,24 +136,20 @@ public class ModEnforcer implements Listener {
      */
     public int getBedrockPlayerCount() {
         return (int) Bukkit.getOnlinePlayers().stream()
-                .filter(p -> isBedrockPlayer(p.getUniqueId()))
+                .filter(p -> isBedrock(p.getUniqueId()))
                 .count();
     }
 
     /**
-     * Estimate CPU capability for a Java client based on ping.
-     * Lower ping → higher capability (inverse proxy for connection/PC quality).
+     * Estimate CPU capability for a Java client based on hardware (ping excluded in v1.1).
      */
     public double estimateClientCpu(Player player) {
         if (player == null) return 0.5;
-        int ping = player.getPing();
-        if (ping < 30) return 1.0;
-        if (ping < 60) return 0.9;
-        if (ping < 100) return 0.8;
-        if (ping < 150) return 0.7;
-        if (ping < 250) return 0.6;
-        if (ping < 400) return 0.5;
-        if (ping < 600) return 0.4;
+        int cores = Runtime.getRuntime().availableProcessors();
+        if (cores >= 16) return 1.0;
+        if (cores >= 8) return 0.9;
+        if (cores >= 6) return 0.7;
+        if (cores >= 4) return 0.5;
         return 0.3;
     }
 
@@ -131,6 +168,27 @@ public class ModEnforcer implements Listener {
 
         // Weighted combination: TPS matters more
         return Math.min(1.0, tpsLoad * 0.7 + ramLoad * 0.3);
+    }
+
+    /**
+     * Check if the server has high load and needs to offload Geyser processing.
+     */
+    public boolean needsGeyserOffload() {
+        return getServerLoadFactor() > 0.7 && getBedrockPlayerCount() > 0;
+    }
+
+    /**
+     * Get the number of Geyser offload tasks completed.
+     */
+    public int getGeyserOffloadCount() {
+        return geyserOffloadCount.get();
+    }
+
+    /**
+     * Increment Geyser offload counter.
+     */
+    public void incrementGeyserOffload() {
+        geyserOffloadCount.incrementAndGet();
     }
 
     /**

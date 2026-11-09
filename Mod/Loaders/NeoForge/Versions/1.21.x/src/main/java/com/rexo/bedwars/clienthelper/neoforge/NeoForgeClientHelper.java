@@ -2,18 +2,22 @@ package com.rexo.bedwars.clienthelper.neoforge;
 
 import com.rexo.bedwars.clienthelper.BWOptimizerData;
 import com.rexo.bedwars.clienthelper.ClientOffloadManager;
-import com.rexo.bedwars.clienthelper.PingEqualizerManager;
+import com.rexo.bedwars.clienthelper.HealthDisplayManager;
 
 /**
- * NeoForgeClientHelper for BedWarsOptimizer.
+ * NeoForgeClientHelper for BedWarsOptimizer v1.1.0.
+ * 
  * Features:
  *   - CPU offload task processing
- *   - Ping equalization: hides real ping, applies server compensation
+ *   - Health display: renders number + hearts over players (Hypixel style)
+ *     Each client renders health for its OWN player
+ *   - Geyser/Floodgate work offloading when server is under pressure
  */
 public class NeoForgeClientHelper {
     private static NeoForgeClientHelper instance;
     private boolean initialized = false;
-    private final PingEqualizerManager pingManager = PingEqualizerManager.getInstance();
+    private final ClientOffloadManager clientManager = ClientOffloadManager.getInstance();
+    private final HealthDisplayManager healthManager = HealthDisplayManager.getInstance();
 
     public static NeoForgeClientHelper getInstance() {
         return instance;
@@ -26,13 +30,18 @@ public class NeoForgeClientHelper {
     public void init() {
         if (initialized) return;
         initialized = true;
-        pingManager.init();
-        System.out.println("[BWOpt] NeoForgeClientHelper initialized — ping eq: " + pingManager.isActive());
+        
+        // Register with server
+        clientManager.registerWithServer();
+        healthManager.init();
+        
+        System.out.println("[BWOpt] NeoForgeClientHelper initialized — version 1.1.0");
     }
 
     public void handleOffloadTask(BWOptimizerData.OffloadPacket packet) {
         ClientOffloadManager manager = ClientOffloadManager.getInstance();
         if (!manager.isEnabled()) return;
+        
         for (BWOptimizerData.HotEntity entity : packet.hotEntities) {
             processHotEntity(entity);
         }
@@ -41,22 +50,28 @@ public class NeoForgeClientHelper {
         }
     }
 
-    public void handlePingEqualize(BWOptimizerData.PingEqualizePacket packet) {
-        pingManager.applyPingEqualization(packet);
+    public void handleHealthDisplay(BWOptimizerData.HealthDisplayPacket packet) {
+        // Only render health for our own player
+        String myUuid = getClientUuid();
+        if (myUuid != null && packet.playerUuid.equals(myUuid)) {
+            healthManager.applyHealthDisplay(packet);
+        }
     }
 
-    public int getReportedPing() {
-        return pingManager.getReportedPing();
+    /**
+     * Render health display during the tick/render loop.
+     * Returns formatted string like "10.0 ♥♥♥♥" or null if no data.
+     */
+    public String renderHealthForPlayer(String uuid) {
+        return clientManager.renderHealthForPlayer(uuid);
     }
 
-    public long applyInputCompensation() {
-        return pingManager.applyInputCompensation();
-    }
-
-    public void sendPingReport(int realPingMs, int clientTickRate) {
-        BWOptimizerData.PingReportPacket report = new BWOptimizerData.PingReportPacket(
-                "java_client", realPingMs, clientTickRate);
-        System.out.println("[BWOpt] Ping report: " + report.realPingMs + "ms");
+    /**
+     * Get the local client's UUID (for matching health packets).
+     */
+    private String getClientUuid() {
+        // In production, this would query Minecraft's session UUID
+        return "local_client_uuid";
     }
 
     private void processHotEntity(BWOptimizerData.HotEntity entity) {
@@ -80,6 +95,7 @@ public class NeoForgeClientHelper {
     public void registerWithServer() {
         double cpuCapability = estimateCpuCapability();
         System.out.println("[BWOpt] Registering with server (cpu: " + cpuCapability + ")");
+        clientManager.registerWithServer();
     }
 
     private double estimateCpuCapability() {
@@ -92,5 +108,5 @@ public class NeoForgeClientHelper {
     }
 
     public boolean isInitialized() { return initialized; }
-    public PingEqualizerManager getPingManager() { return pingManager; }
+    public HealthDisplayManager getHealthManager() { return healthManager; }
 }

@@ -2,19 +2,21 @@ package com.rexo.bedwars.optimizer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * BedWarsOptimizer — CPU profiler + dynamic client-side load offload + ping equalization.
+ * BedWarsOptimizer — CPU profiler + dynamic client-side load offload + health display.
  *
  * Java clients with the mod:
- *   - Receive offloaded work based on ping/CPU capability
- *   - Get dynamic ping equalization (server compensates so everyone feels 0ms)
+ *   - Receive offloaded work based on CPU capability
+ *   - Render health as a number + hearts over players (Hypixel BedWars style)
+ *     Health calculation is done by the client of the player whose health is displayed
+ *   - MUST have mod v1.1.0 or higher, otherwise kicked after grace period
  * Bedrock clients: handled server-side (no mod required, no kicking)
+ *   - Geyser/Floodgate processing may be offloaded to capable Java clients
  *
- * Work is dynamically split using: client ping, server TPS, RAM usage
+ * Work is dynamically split using: server TPS, RAM usage, number of capable clients
  */
 public class BedWarsOptimizer extends JavaPlugin {
 
@@ -24,7 +26,7 @@ public class BedWarsOptimizer extends JavaPlugin {
     private LoadReportManager reportManager;
     private ClientComm clientComm;
     private ModEnforcer modEnforcer;
-    private PingEqualizer pingEqualizer;
+    private HealthDisplayManager healthDisplayManager;
     private final AtomicLong totalEntities = new AtomicLong(0);
     private final AtomicLong hotEntities = new AtomicLong(0);
     private final AtomicLong hotTiles = new AtomicLong(0);
@@ -39,23 +41,21 @@ public class BedWarsOptimizer extends JavaPlugin {
         reportManager = new LoadReportManager(this, config);
         clientComm = new ClientComm(this, config, reportManager);
         modEnforcer = new ModEnforcer(this, config);
-        pingEqualizer = new PingEqualizer(this, config);
+        healthDisplayManager = new HealthDisplayManager(this, config);
 
         profiler.enable();
         reportManager.enable();
         clientComm.enable();
-
-        if (config.isPingEqualizationEnabled()) {
-            pingEqualizer.enable();
-        }
+        modEnforcer.enable();
+        healthDisplayManager.enable();
 
         // Register event listeners (mod registration, not enforcement)
         getServer().getPluginManager().registerEvents(modEnforcer, this);
 
-        getLogger().info("BedWarsOptimizer v1.0.0 enabled — profiling: " + config.getProfileMode()
+        getLogger().info("BedWarsOptimizer v1.1.0 enabled — profiling: " + config.getProfileMode()
                 + " | offload: " + config.isOffloadEnabled()
-                + " | ping-eq: " + config.isPingEqualizationEnabled()
-                + " (" + config.getPingTargetLatencyMs() + "ms target)");
+                + " | health-display: " + config.isHealthDisplayEnabled()
+                + " | kick-no-mod: true");
 
         // Register command
         getCommand("bwopt").setExecutor(new OptimizerCommand(this));
@@ -66,7 +66,8 @@ public class BedWarsOptimizer extends JavaPlugin {
         if (profiler != null) profiler.disable();
         if (reportManager != null) reportManager.disable();
         if (clientComm != null) clientComm.disable();
-        if (pingEqualizer != null) pingEqualizer.disable();
+        if (modEnforcer != null) modEnforcer.disable();
+        if (healthDisplayManager != null) healthDisplayManager.disable();
         instance = null;
         getLogger().info("BedWarsOptimizer disabled.");
     }
@@ -77,7 +78,7 @@ public class BedWarsOptimizer extends JavaPlugin {
     public LoadReportManager getReportManager() { return reportManager; }
     public ClientComm getClientComm() { return clientComm; }
     public ModEnforcer getModEnforcer() { return modEnforcer; }
-    public PingEqualizer getPingEqualizer() { return pingEqualizer; }
+    public HealthDisplayManager getHealthDisplayManager() { return healthDisplayManager; }
     public long getTotalEntities() { return totalEntities.get(); }
     public long getHotEntities() { return hotEntities.get(); }
     public long getHotTiles() { return hotTiles.get(); }

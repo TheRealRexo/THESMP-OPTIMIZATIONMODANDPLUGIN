@@ -109,30 +109,36 @@ public class BWOptimizerData {
     }
 
     /**
-     * Ping equalization packet — sent from server to each client.
+     * Health display packet — sent from server to each client.
      *
-     * The server measures each client's real ping, then calculates an offset
-     * so that all clients experience equalized latency. The client mod applies
-     * this offset to hide the real ping and report 0ms.
+     * The server tracks real health but the client mod renders the health
+     * display (number + hearts) locally. Health calculation is done by
+     * the client of the player whose health is being displayed.
      */
-    public static class PingEqualizePacket implements Serializable {
+    public static class HealthDisplayPacket implements Serializable {
         public final long serverTimestamp;
-        public final int targetLatencyMs;
-        public final int compensationMs;
-        public final double jitterFactor;
-        public final boolean hidePing;
-        public final int serverAvgPingMs;
+        public final String playerUuid;
+        public final double health;          // 0.0-20.0
+        public final double maxHealth;       // 20.0
+        public final int absorption;          // absorption hearts
+        public final boolean showHearts;      // render heart icons
+        public final boolean showNumber;      // render health number
+        public final String numberFormat;     // "XX" or "XX.X"
+        public final int heartCount;          // number of hearts to display
         public final Map<String, Object> metadata;
 
-        public PingEqualizePacket(long serverTimestamp, int targetLatencyMs,
-                                  int compensationMs, double jitterFactor, boolean hidePing,
-                                  int serverAvgPingMs) {
+        public HealthDisplayPacket(long serverTimestamp, String playerUuid,
+                                   double health, double maxHealth, int absorption,
+                                   boolean showHearts, boolean showNumber, String numberFormat) {
             this.serverTimestamp = serverTimestamp;
-            this.targetLatencyMs = targetLatencyMs;
-            this.compensationMs = compensationMs;
-            this.jitterFactor = jitterFactor;
-            this.hidePing = hidePing;
-            this.serverAvgPingMs = serverAvgPingMs;
+            this.playerUuid = playerUuid;
+            this.health = health;
+            this.maxHealth = maxHealth;
+            this.absorption = absorption;
+            this.showHearts = showHearts;
+            this.showNumber = showNumber;
+            this.numberFormat = numberFormat;
+            this.heartCount = (int) Math.ceil(health / 2.0);
             this.metadata = new HashMap<>();
             metadata.put("version", "2.0");
             metadata.put("plugin", "BedWarsOptimizer");
@@ -140,20 +146,24 @@ public class BWOptimizerData {
     }
 
     /**
-     * Client ping report — sent from client mod back to server.
-     * Contains the client's measured real ping for verification.
+     * Geyser/Floodgate offload packet — sent when server needs help with Bedrock processing.
      */
-    public static class PingReportPacket implements Serializable {
-        public final String clientId;
-        public final int realPingMs;
-        public final int clientTickRate;
-        public final long timestamp;
+    public static class GeyserOffloadPacket implements Serializable {
+        public final long serverTimestamp;
+        public final int bedrockPlayerCount;
+        public final double serverLoadFactor;
+        public final int workItems;
+        public final Map<String, Object> metadata;
 
-        public PingReportPacket(String clientId, int realPingMs, int clientTickRate) {
-            this.clientId = clientId;
-            this.realPingMs = realPingMs;
-            this.clientTickRate = clientTickRate;
-            this.timestamp = System.currentTimeMillis();
+        public GeyserOffloadPacket(long serverTimestamp, int bedrockPlayerCount,
+                                   double serverLoadFactor, int workItems) {
+            this.serverTimestamp = serverTimestamp;
+            this.bedrockPlayerCount = bedrockPlayerCount;
+            this.serverLoadFactor = serverLoadFactor;
+            this.workItems = workItems;
+            this.metadata = new HashMap<>();
+            metadata.put("version", "2.0");
+            metadata.put("plugin", "BedWarsOptimizer");
         }
     }
 

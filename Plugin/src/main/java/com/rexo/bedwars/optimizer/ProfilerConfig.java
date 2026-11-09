@@ -8,7 +8,8 @@ import org.bukkit.configuration.file.FileConfiguration;
  * Key features:
  *   - CPU profiling for entities and tile entities
  *   - Dynamic load offload to capable Java clients (Bedrock players are exempt)
- *   - Ping equalization: server compensates for client latency differences
+ *   - Health display: server sends health packets, client renders number + hearts
+ *   - Auto-kick Java players without updated mod
  *   - TPS-based auto-throttle (safe — only adjusts view/sim distance)
  */
 public class ProfilerConfig {
@@ -40,12 +41,15 @@ public class ProfilerConfig {
     private final int maxOffloadPerTick;
     private final int pollIntervalSeconds;
 
-    // ── Ping Equalization ────────────────────────────────────────────────────────
-    private final boolean pingEqualizationEnabled;
-    private final int pingTargetLatencyMs;     // target equalized latency
-    private final int pingPollIntervalSeconds; // how often to recalculate
-    private final boolean pingHideEnabled;     // force-display 0ms ping
-    private final int pingMinSamples;          // min samples before trusting
+    // ── Health Display ───────────────────────────────────────────────────────────
+    private final boolean healthDisplayEnabled;
+    private final int healthDisplayIntervalTicks;
+    private final boolean healthShowHearts;
+    private final boolean healthShowNumber;
+
+    // ── Floodgate Offload ───────────────────────────────────────────────────────
+    private final boolean floodgateOffloadEnabled;
+    private final double floodgateLoadThreshold;
 
     // ── Auto-throttle ────────────────────────────────────────────────────────────
     private final boolean autoThrottle;
@@ -86,12 +90,15 @@ public class ProfilerConfig {
         this.maxOffloadPerTick = config.getInt("report.max-offload-per-tick", 50);
         this.pollIntervalSeconds = config.getInt("report.poll-interval-seconds", 5);
 
-        // Ping equalization
-        this.pingEqualizationEnabled = config.getBoolean("ping-equalization.enabled", true);
-        this.pingTargetLatencyMs = config.getInt("ping-equalization.target-latency-ms", 15);
-        this.pingPollIntervalSeconds = config.getInt("ping-equalization.poll-interval-seconds", 3);
-        this.pingHideEnabled = config.getBoolean("ping-equalization.hide-ping", true);
-        this.pingMinSamples = config.getInt("ping-equalization.min-samples", 3);
+        // Health display
+        this.healthDisplayEnabled = config.getBoolean("health-display.enabled", true);
+        this.healthDisplayIntervalTicks = config.getInt("health-display.interval-ticks", 2);
+        this.healthShowHearts = config.getBoolean("health-display.show-hearts", true);
+        this.healthShowNumber = config.getBoolean("health-display.show-number", true);
+
+        // Floodgate offload
+        this.floodgateOffloadEnabled = config.getBoolean("floodgate-offload.enabled", true);
+        this.floodgateLoadThreshold = config.getDouble("floodgate-offload.load-threshold", 0.7);
 
         // Auto-throttle
         this.autoThrottle = config.getBoolean("auto-throttle.enabled", true);
@@ -126,12 +133,15 @@ public class ProfilerConfig {
     public int getMaxOffloadPerTick() { return maxOffloadPerTick; }
     public int getPollIntervalSeconds() { return pollIntervalSeconds; }
 
-    // ── Ping equalization getters ────────────────────────────────────────────────
-    public boolean isPingEqualizationEnabled() { return pingEqualizationEnabled; }
-    public int getPingTargetLatencyMs() { return pingTargetLatencyMs; }
-    public int getPingPollIntervalSeconds() { return pingPollIntervalSeconds; }
-    public boolean isPingHideEnabled() { return pingHideEnabled; }
-    public int getPingMinSamples() { return pingMinSamples; }
+    // ── Health display getters ───────────────────────────────────────────────────
+    public boolean isHealthDisplayEnabled() { return healthDisplayEnabled; }
+    public int getHealthDisplayIntervalTicks() { return healthDisplayIntervalTicks; }
+    public boolean isHealthShowHearts() { return healthShowHearts; }
+    public boolean isHealthShowNumber() { return healthShowNumber; }
+
+    // ── Floodgate offload getters ────────────────────────────────────────────────
+    public boolean isFloodgateOffloadEnabled() { return floodgateOffloadEnabled; }
+    public double getFloodgateLoadThreshold() { return floodgateLoadThreshold; }
 
     // ── Auto-throttle getters ────────────────────────────────────────────────────
     public boolean isAutoThrottle() { return autoThrottle; }

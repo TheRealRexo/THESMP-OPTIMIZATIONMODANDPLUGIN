@@ -1,27 +1,28 @@
 package com.rexo.bedwars.clienthelper;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.Map;
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Client-side CPU offload manager + ping equalization integration.
+ * Client-side CPU offload manager + health display integration.
  *
  * Handles distributing work to strong clients based on their capabilities.
- * Also integrates with PingEqualizerManager to hide real ping and apply
- * server-side compensation for smooth gameplay.
+ * Also handles health display packets from the server — each client
+ * renders health for its OWN player (not other players' clients).
  */
 public class ClientOffloadManager {
     private static final ClientOffloadManager instance = new ClientOffloadManager();
 
     public static final String REGISTRATION_CHANNEL = "bedwars:register";
-    public static final String PING_EQ_CHANNEL = "bedwars:equalize";
-    public static final String PING_REPORT_CHANNEL = "bedwars:ping_report";
+    public static final String HEALTH_DISPLAY_CHANNEL = "bedwars:health_display";
 
     public static ClientOffloadManager getInstance() {
         return instance;
@@ -32,9 +33,9 @@ public class ClientOffloadManager {
     private volatile boolean enabled;
     private volatile int taskIdCounter;
     private volatile boolean registeredWithServer = false;
-    private final PingEqualizerManager pingManager = PingEqualizerManager.getInstance();
-    private final AtomicInteger pingReportCounter = new AtomicInteger(0);
-    private final AtomicLong lastPingReportTime = new AtomicLong(0);
+    private final HealthDisplayManager healthManager = HealthDisplayManager.getInstance();
+    private final AtomicInteger taskCount = new AtomicInteger(0);
+    private final AtomicLong lastTaskTime = new AtomicLong(0);
 
     private ClientOffloadManager() {
         int cores = Runtime.getRuntime().availableProcessors();
@@ -124,30 +125,22 @@ public class ClientOffloadManager {
     }
 
     /**
-     * Periodically send ping reports to the server.
-     * Called by the client tick loop.
+     * Handle a HealthDisplayPacket received from the server.
+     * The client of the player whose health is displayed does the rendering.
      */
-    public void tickPingReport() {
-        long now = System.currentTimeMillis();
-        // Send a ping report every 3 seconds
-        if (now - lastPingReportTime.get() < 3000) return;
-        lastPingReportTime.set(now);
-        pingReportCounter.incrementAndGet();
-
-        // In production this sends a PingReportPacket via the plugin channel
-        // For now we log it
-        String realStr = pingManager.isHidePing() ? "hidden" : (pingManager.getReportedPing() + "ms");
-        System.out.println("[BWOpt] Ping report #" + pingReportCounter.get()
-                + " — reported: " + pingManager.getReportedPing() + "ms"
-                + " (real: " + realStr + ")");
+    public void handleHealthDisplay(BWOptimizerData.HealthDisplayPacket packet) {
+        healthManager.applyHealthDisplay(packet);
     }
 
     /**
-     * Apply input compensation before processing a tick.
-     * Returns the delay in ms to apply.
+     * Render health display for a player.
+     * Called from the render loop — draws number + hearts above player.
+     *
+     * @param uuid the UUID of the player whose health to render
+     * @return formatted string or null
      */
-    public long beforeTick() {
-        return pingManager.applyInputCompensation();
+    public String renderHealthForPlayer(String uuid) {
+        return healthManager.renderHealthDisplay(uuid);
     }
 
     public void enable() {
@@ -166,8 +159,8 @@ public class ClientOffloadManager {
         return taskIdCounter++;
     }
 
-    public PingEqualizerManager getPingManager() {
-        return pingManager;
+    public HealthDisplayManager getHealthManager() {
+        return healthManager;
     }
 
     private double estimateCpuCapability() {

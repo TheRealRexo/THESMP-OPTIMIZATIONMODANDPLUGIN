@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "bedwars-optimizer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "BedWarsOptimizer Client Mod",
   "description": "Improves server-client performance when joining the BedWars server. Optimizes client-side processing to reduce lag spikes and smooth gameplay during peak server load.",
   "authors": ["TheRealRexo"],
@@ -18,9 +18,7 @@
   "mixins": [],
   "depends": {
     "fabricloader": ">=0.14.0",
-    "minecraft": ">=1.12.2",
-    "java": ">=17",
-    "modmenu": ">=7.0.0"
-  },
-  "custom": {}
+    "minecraft": ">=1.20.5",
+    "java": ">=17"
+  }
 }

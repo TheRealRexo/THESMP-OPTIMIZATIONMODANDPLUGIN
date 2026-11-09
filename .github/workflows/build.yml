@@ -19,153 +19,32 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Build Plugin JAR
+      - name: Compile Plugin
         run: |
           cd Plugin
-          gradle build --no-daemon
-          mkdir -p ../build-artifacts
-          cp build/libs/BedWarsOptimizer-1.0.0.jar ../build-artifacts/
+          PAPER="/tmp/paper-api-1.21.4.jar"
+          FLOODGATE="../../floodgate-spigot.jar"
+          mkdir -p build/classes build/resources
+          cp src/main/resources/plugin.yml build/resources/
+          cp src/main/resources/config.yml build/resources/
+          javac -d build/classes \
+            -cp "$PAPER:$FLOODGATE" \
+            src/main/java/com/rexo/bedwars/optimizer/*.java 2>&1 | grep -E "error:" || true
+          jar cf ../BedWarsOptimizer-1.1.0.jar -C build/classes . -C build/resources .
 
       - name: Upload Plugin Artifact
         uses: actions/upload-artifact@v4
         with:
           name: BedWarsOptimizer-Plugin
-          path: build-artifacts/BedWarsOptimizer-1.0.0.jar
-          retention-days: 1
-
-  build-common:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Compile Common Classes
-        run: |
-          mkdir -p build/classes/common
-          javac -d build/classes/common \
-            -sourcepath Mod/common/src/main/java \
-            $(find Mod/common/src/main/java -name "*.java")
-
-      - name: Create Common JAR
-        run: |
-          mkdir -p build-artifacts
-          cd build/classes/common
-          jar cf ../../build-artifacts/bedwars-optimizer-common.jar .
-
-      - name: Upload Common Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: BedWarsOptimizer-Common
-          path: build-artifacts/bedwars-optimizer-common.jar
+          path: Plugin/BedWarsOptimizer-1.1.0.jar
           retention-days: 1
 
   build-clients:
     runs-on: ubuntu-latest
-    needs: [build-plugin, build-common]
     strategy:
       matrix:
-        include:
-          # Fabric
-          - loader: Fabric
-            version: '1.14.x'
-          - loader: Fabric
-            version: '1.15.x'
-          - loader: Fabric
-            version: '1.16.x'
-          - loader: Fabric
-            version: '1.17.x'
-          - loader: Fabric
-            version: '1.18.x'
-          - loader: Fabric
-            version: '1.19.x'
-          - loader: Fabric
-            version: '1.20.x'
-          - loader: Fabric
-            version: '1.21.x'
-          - loader: Fabric
-            version: '26.1.x'
-          - loader: Fabric
-            version: '26.2.x'
-          - loader: Fabric
-            version: '26.3.x'
-          # Forge (1.8.9 and 1.9.4 support lives under Forge)
-          - loader: Forge
-            version: '1.8.9'
-          - loader: Forge
-            version: '1.9.4'
-          - loader: Forge
-            version: '1.10.x'
-          - loader: Forge
-            version: '1.11.x'
-          - loader: Forge
-            version: '1.12.x'
-          - loader: Forge
-            version: '1.13.2'
-          - loader: Forge
-            version: '1.14.x'
-          - loader: Forge
-            version: '1.15.x'
-          - loader: Forge
-            version: '1.16.x'
-          - loader: Forge
-            version: '1.17.x'
-          - loader: Forge
-            version: '1.18.x'
-          - loader: Forge
-            version: '1.19.x'
-          - loader: Forge
-            version: '1.20.x'
-          - loader: Forge
-            version: '1.21.x'
-          - loader: Forge
-            version: '26.1.x'
-          - loader: Forge
-            version: '26.2.x'
-          - loader: Forge
-            version: '26.3.x'
-          # NeoForge
-          - loader: NeoForge
-            version: '1.20.x'
-          - loader: NeoForge
-            version: '1.21.x'
-          - loader: NeoForge
-            version: '26.1.x'
-          - loader: NeoForge
-            version: '26.2.x'
-          - loader: NeoForge
-            version: '26.3.x'
-          # Quilt
-          - loader: Quilt
-            version: '1.14.x'
-          - loader: Quilt
-            version: '1.15.x'
-          - loader: Quilt
-            version: '1.16.x'
-          - loader: Quilt
-            version: '1.17.x'
-          - loader: Quilt
-            version: '1.18.x'
-          - loader: Quilt
-            version: '1.19.x'
-          - loader: Quilt
-            version: '1.20.x'
-          - loader: Quilt
-            version: '1.21.x'
-          - loader: Quilt
-            version: '26.1.x'
-          - loader: Quilt
-            version: '26.2.x'
-          - loader: Quilt
-            version: '26.3.x'
+        loader: [Fabric, Forge, NeoForge, Quilt]
+        version: ['1.21.x']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -176,96 +55,55 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download Common JAR
-        uses: actions/download-artifact@v4
-        with:
-          name: BedWarsOptimizer-Common
-
-      - name: Compile ${{ matrix.loader }} ${{ matrix.version }}
+      - name: Compile Common
         run: |
-          mkdir -p build/classes/${{ matrix.loader }}-${{ matrix.version }}
-          src_dir="Mod/Loaders/${{ matrix.loader }}/Versions/${{ matrix.version }}/src/main/java"
-          if [ -d "$src_dir" ]; then
-            javac -cp bedwars-optimizer-common.jar \
-              -d build/classes/${{ matrix.loader }}-${{ matrix.version }} \
-              -sourcepath "$src_dir" \
-              $(find "$src_dir" -name "*.java")
-          fi
+          COMMON="Mod/common/src/main/java"
+          BUILD="build/common-${{ matrix.loader }}"
+          mkdir -p "$BUILD"
+          javac -d "$BUILD" $(find "$COMMON" -name "*.java")
+
+      - name: Compile ${{ matrix.loader }} Loader
+        run: |
+          COMMON_BUILD="build/common-${{ matrix.loader }}"
+          LOADER_SRC="Mod/Loaders/${{ matrix.loader }}/Versions/${{ matrix.version }}/src/main/java"
+          BUILD="build/${{ matrix.loader }}-${{ matrix.version }}"
+          mkdir -p "$BUILD"
+          javac -cp "$COMMON_BUILD" -d "$BUILD" "$LOADER_SRC/com/rexo/bedwars/clienthelper/${{ matrix.loader,,}}/${{ matrix.loader }}ClientHelper.java"
 
       - name: Create ${{ matrix.loader }} JAR
         run: |
+          COMMON_BUILD="build/common-${{ matrix.loader }}"
+          BUILD="build/${{ matrix.loader }}-${{ matrix.version }}"
           mkdir -p build-artifacts
-          class_dir="build/classes/${{ matrix.loader }}-${{ matrix.version }}"
-          if [ -d "$class_dir/com" ]; then
-            cd "$class_dir"
-            jar cf "../../../../build-artifacts/bedwars-optimizer-${{ matrix.loader }}-${{ matrix.version }}.jar" .
-          fi
+          cd "$BUILD"
+          jar cf "../../../../build-artifacts/bedwars-optimizer-${{ matrix.loader }}.jar" com/
 
-      - name: Upload JAR
+      - name: Copy Metadata
+        run: |
+          META="build-artifacts/"
+          cp Mod/universal/fabric.mod.json "$META/fabric.mod.json"
+          cp Mod/universal/mcmod.info "$META/mcmod.info"
+          cp Mod/universal/neoforge.mod.json "$META/neoforge.mod.json"
+          cp Mod/universal/quilt.mod.json "$META/quilt.mod.json"
+          mkdir -p "$META/META-INF"
+          cp Mod/universal/META-INF/mods.toml "$META/META-INF/"
+          cp -r Mod/universal/assets "$META/"
+
+      - name: Package ${{ matrix.loader }} JAR
+        run: |
+          META="build-artifacts/"
+          jar cf "bedwars-optimizer-${{ matrix.loader }}.jar" -C "$META" .
+
+      - name: Upload ${{ matrix.loader }} Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BedWarsOptimizer-${{ matrix.loader }}-${{ matrix.version }}
-          path: build-artifacts/bedwars-optimizer-${{ matrix.loader }}-${{ matrix.version }}.jar
-          retention-days: 1
-        continue-on-error: true
-
-  build-universal:
-    runs-on: ubuntu-latest
-    needs: build-clients
-    steps:
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Download all client JARs
-        uses: actions/download-artifact@v4
-        with:
-          pattern: 'BedWarsOptimizer-Fabric-*'
-          path: client-jars
-        continue-on-error: true
-
-      - name: Download all client JARs (forge, neoforge, quilt)
-        run: |
-          mkdir -p client-jars
-          for name in $(gh api repos/$GITHUB_REPOSITORY/actions/artifacts --jq '.artifacts[].name' | grep -E '^BedWarsOptimizer-(Forge|NeoForge|Quilt)-' || true); do
-            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$name" --dir client-jars
-          done
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Universal JAR
-        run: |
-          mkdir -p build/universal
-          cd build/universal
-          for jar in $(find ../../client-jars -name "bedwars-optimizer-*.jar"); do
-            jar xf "$jar"
-          done
-          # Add icon
-          mkdir -p assets/bedwars-optimizer
-          cp ../../Mod/universal/assets/bedwars-optimizer/icon.png assets/bedwars-optimizer/
-          # Add metadata files for Modrinth compatibility
-          cp ../../Mod/universal/fabric.mod.json .
-          cp ../../Mod/universal/mcmod.info .
-          cp ../../Mod/universal/neoforge.mod.json .
-          cp ../../Mod/universal/quilt.mod.json .
-          mkdir -p META-INF
-          cp ../../Mod/universal/META-INF/mods.toml META-INF/
-          jar cf ../../build-artifacts/bedwars-optimizer-universal.jar .
-          mkdir -p ../../build-artifacts
-          mv ../../build-artifacts/bedwars-optimizer-universal.jar ../../build-artifacts/ 2>/dev/null || true
-
-      - name: Upload Universal JAR
-        uses: actions/upload-artifact@v4
-        with:
-          name: BedWarsOptimizer-Universal
-          path: build-artifacts/bedwars-optimizer-universal.jar
+          name: BedWarsOptimizer-${{ matrix.loader }}
+          path: build-artifacts/bedwars-optimizer-${{ matrix.loader }}.jar
           retention-days: 1
 
   create-release:
     runs-on: ubuntu-latest
-    needs: [build-plugin, build-clients, build-universal]
+    needs: [build-plugin, build-clients]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Download all artifacts
@@ -280,53 +118,39 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: BedWarsOptimizer v1.0.0
+          tag_name: v1.1.0
+          name: BedWarsOptimizer v1.1.0
           draft: false
           prerelease: false
           delete: true
           body: |
-            ## BedWarsOptimizer Client Mod v1.0.0
+            ## BedWarsOptimizer v1.1.0
 
-            Improves server-client performance when joining the BedWars server.
+            ### Main Feature: Health Display (Hypixel Style)
+            Server sends health data to each client. The client of the player whose health is being displayed renders the number + hearts locally — offloading rendering from server tick loop.
 
-            ### Features
-            - Optimizes client-side processing to reduce lag spikes
-            - Smoother gameplay during peak server load
-            - Works across all major Minecraft mod loaders
+            ### Fixed: Performance Issues with Bedrock Players
+            Offloaded Geyser/Floodgate processing work to capable Java clients to prevent server slowdown when many Bedrock players join.
 
-            ### Universal JAR
-            `bedwars-optimizer-universal.jar` contains all client helpers in one file
-            (Fabric, Forge, NeoForge, Quilt). Place it in your \`mods\` folder.
-            Older 1.8.9 / 1.9.4 clients can use the Forge JARs instead.
+            ### Removed: Ping Equalization
+            Ping hiding didn't work as intended. Removed in favor of stable features.
 
-            ### Supported Versions
-
-            **Fabric**
-            - 1.14.x, 1.15.x, 1.16.x, 1.17.x, 1.18.x, 1.19.x, 1.20.x, 1.21.x
-            - 26.1.x, 26.2.x, 26.3.x
-
-            **Forge**
-            - 1.8.9, 1.9.4, 1.10.x, 1.11.x, 1.12.x, 1.13.2
-            - 1.14.x, 1.15.x, 1.16.x, 1.17.x, 1.18.x, 1.19.x, 1.20.x, 1.21.x
-            - 26.1.x, 26.2.x, 26.3.x
-
-            **NeoForge**
-            - 1.20.x, 1.21.x
-            - 26.1.x, 26.2.x, 26.3.x
-
-            **Quilt**
-            - 1.14.x, 1.15.x, 1.16.x, 1.17.x, 1.18.x, 1.19.x, 1.20.x, 1.21.x
-            - 26.1.x, 26.2.x, 26.3.x
+            ### Kicked: Old Mod Versions
+            Clients without the v1.1.0 mod are disconnected until they update.
 
             ### Installation
-            Place the appropriate JAR in your \`mods\` folder. The universal JAR
-            works for all supported versions and loaders.
+            Place the appropriate JAR in your `mods` folder:
+            - **Fabric**: `bedwars-optimizer-Fabric.jar`
+            - **Forge**: `bedwars-optimizer-Forge.jar`
+            - **NeoForge**: `bedwars-optimizer-NeoForge.jar`
+            - **Quilt**: `bedwars-optimizer-Quilt.jar`
 
-            ---
-            **Server Plugin:** See \`BedWarsOptimizer-1.0.0.jar\` for the server-side plugin.
+            **Server Plugin**: See `BedWarsOptimizer-1.1.0.jar`
           files: |
-            build-artifacts/BedWarsOptimizer-1.0.0.jar
-            build-artifacts/bedwars-optimizer-universal.jar
+            build-artifacts/BedWarsOptimizer-1.1.0.jar
+            build-artifacts/bedwars-optimizer-Fabric.jar
+            build-artifacts/bedwars-optimizer-Forge.jar
+            build-artifacts/bedwars-optimizer-NeoForge.jar
+            build-artifacts/bedwars-optimizer-Quilt.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Command handler for /bwopt — profiling, offload, and ping equalization commands.
+ * Command handler for /bwopt — profiling, offload, and health display commands.
  */
 public class OptimizerCommand implements CommandExecutor, TabCompleter {
     private final BedWarsOptimizer plugin;
@@ -50,8 +50,11 @@ public class OptimizerCommand implements CommandExecutor, TabCompleter {
             case "offload":
                 showOffload(player);
                 break;
-            case "ping":
-                showPing(player);
+            case "health":
+                showHealth(player);
+                break;
+            case "geyser":
+                showGeyser(player);
                 break;
             case "reset":
                 resetProfile(player);
@@ -70,7 +73,8 @@ public class OptimizerCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.YELLOW + "/bwopt status" + ChatColor.GRAY + " — Show current profiling status");
         player.sendMessage(ChatColor.YELLOW + "/bwopt profile" + ChatColor.GRAY + " — Run an immediate profile cycle");
         player.sendMessage(ChatColor.YELLOW + "/bwopt offload" + ChatColor.GRAY + " — Show offload targets");
-        player.sendMessage(ChatColor.YELLOW + "/bwopt ping" + ChatColor.GRAY + " — Show ping equalization status");
+        player.sendMessage(ChatColor.YELLOW + "/bwopt health" + ChatColor.GRAY + " — Show health display status");
+        player.sendMessage(ChatColor.YELLOW + "/bwopt geyser" + ChatColor.GRAY + " — Show Geyser/Floodgate offload status");
         player.sendMessage(ChatColor.YELLOW + "/bwopt reset" + ChatColor.GRAY + " — Reset all profiles");
         player.sendMessage(ChatColor.YELLOW + "/bwopt help" + ChatColor.GRAY + " — Show this help");
     }
@@ -89,8 +93,9 @@ public class OptimizerCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.GRAY + "RAM: " + String.format("%.1f%%", memPercent));
         player.sendMessage(ChatColor.GRAY + "Auto-throttle: " + cfg.isAutoThrottle());
         player.sendMessage(ChatColor.GRAY + "Offload: " + cfg.isOffloadEnabled());
-        player.sendMessage(ChatColor.GRAY + "Ping-eq: " + cfg.isPingEqualizationEnabled()
-                + " (target: " + cfg.getPingTargetLatencyMs() + "ms)");
+        player.sendMessage(ChatColor.GRAY + "Health-display: " + cfg.isHealthDisplayEnabled()
+                + " (hearts: " + cfg.isHealthShowHearts() + ", number: " + cfg.isHealthShowNumber() + ")");
+        player.sendMessage(ChatColor.GRAY + "Geyser-offload: " + cfg.isFloodgateOffloadEnabled());
         player.sendMessage(ChatColor.GRAY + "Hot entities: " + plugin.getHotEntities());
         player.sendMessage(ChatColor.GRAY + "Hot tiles: " + plugin.getHotTiles());
     }
@@ -120,31 +125,38 @@ public class OptimizerCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.GRAY + "Server load: " + String.format("%.2f", plugin.getModEnforcer().getServerLoadFactor()));
     }
 
-    private void showPing(Player player) {
-        PingEqualizer eq = plugin.getPingEqualizer();
-        if (!eq.isActive()) {
-            player.sendMessage(ChatColor.RED + "Ping equalization is disabled.");
+    private void showHealth(Player player) {
+        HealthDisplayManager hd = plugin.getHealthDisplayManager();
+        if (!hd.isActive()) {
+            player.sendMessage(ChatColor.RED + "Health display is disabled.");
             return;
         }
 
-        player.sendMessage(ChatColor.GREEN + "=== Ping Equalization ===");
-        player.sendMessage(ChatColor.GRAY + "Enabled: " + eq.isActive());
-        player.sendMessage(ChatColor.GRAY + "Target latency: " + eq.getTargetLatencyMs() + "ms");
-        player.sendMessage(ChatColor.GRAY + "Hide ping: " + plugin.getProfilerConfig().isPingHideEnabled());
-        player.sendMessage(ChatColor.GRAY + "Server avg ping: " + eq.getServerAvgPingMs() + "ms");
-        player.sendMessage(ChatColor.GRAY + "Tracked clients: " + eq.getClientPings().size());
+        player.sendMessage(ChatColor.GREEN + "=== Health Display ===");
+        player.sendMessage(ChatColor.GRAY + "Enabled: " + hd.isActive());
+        player.sendMessage(ChatColor.GRAY + "Send interval: " + hd.getSendIntervalTicks() + " ticks");
+        player.sendMessage(ChatColor.GRAY + "Cached players: " + hd.getCachedPlayerCount());
 
-        for (Map.Entry<UUID, PingEqualizer.ClientPing> entry : eq.getClientPings().entrySet()) {
+        for (Map.Entry<UUID, Double> entry : hd.getCachedHealthMap().entrySet()) {
             Player p = plugin.getServer().getPlayer(entry.getKey());
             if (p != null && p.isOnline()) {
-                int realPing = entry.getValue().getAverage();
-                int comp = Math.max(0, realPing - eq.getTargetLatencyMs());
+                double health = entry.getValue();
+                int hearts = (int) Math.ceil(health / 2.0);
                 player.sendMessage(ChatColor.YELLOW + "  " + p.getName() + ": "
-                        + ChatColor.GRAY + "real=" + realPing + "ms "
-                        + ChatColor.YELLOW + "comp=" + comp + "ms "
-                        + ChatColor.GREEN + "felt=" + eq.getTargetLatencyMs() + "ms");
+                        + ChatColor.RED + String.format("%.1f", health) + " HP "
+                        + ChatColor.GRAY + "(" + hearts + " hearts)"
+                        + (plugin.getModEnforcer().isBedrock(entry.getKey()) ? " [Bedrock]" : ""));
             }
         }
+    }
+
+    private void showGeyser(Player player) {
+        ModEnforcer enforcer = plugin.getModEnforcer();
+        player.sendMessage(ChatColor.GREEN + "=== Geyser/Floodgate Offload ===");
+        player.sendMessage(ChatColor.GRAY + "Enabled: " + plugin.getProfilerConfig().isFloodgateOffloadEnabled());
+        player.sendMessage(ChatColor.GRAY + "Bedrock players online: " + enforcer.getBedrockPlayerCount());
+        player.sendMessage(ChatColor.GRAY + "Tasks offloaded: " + enforcer.getGeyserOffloadCount());
+        player.sendMessage(ChatColor.GRAY + "Server needs offload: " + enforcer.needsGeyserOffload());
     }
 
     private void resetProfile(Player player) {
@@ -157,7 +169,7 @@ public class OptimizerCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command cmd, String label, String[] args) {
         if (args.length == 1) {
             List<String> completions = new ArrayList<>();
-            List<String> options = Arrays.asList("status", "profile", "offload", "ping", "reset", "help");
+            List<String> options = Arrays.asList("status", "profile", "offload", "health", "geyser", "reset", "help");
             for (String opt : options) {
                 if (opt.startsWith(args[0].toLowerCase())) {
                     completions.add(opt);
