@@ -77,7 +77,7 @@ Instead of the server rendering bossbars or holograms for every player, **each c
 | Minecraft | 1.20.4+ (tested on 1.20.4, 1.21.x) |
 | Java | 21+ |
 | Server Plugin | **BedWarsOptimizer v1.1.0+** (companion plugin, required) |
-| Mod Loader | Fabric |
+| Mod Loader | Fabric, Forge, NeoForge, Quilt |
 
 ---
 
@@ -87,8 +87,8 @@ Instead of the server rendering bossbars or holograms for every player, **each c
 |----------------|---------------|
 | **Regular BedWars player** | Smoother FPS, fewer lag spikes during big fights, health numbers/hearts over enemies |
 | **Server admin (THE SMP)** | Drastically reduced main-thread CPU usage, scalable to 100+ players, Bedrock support (With geyser)|
-| **Modpack creator** | Lightweight, zero-config client mod that "just works" on fabric |
-| **Developer** | Clean architecture: profiling → offload → render separation, plugin channels, cross-loader builds |
+| **Modpack creator** | Lightweight, zero-config client mod that "just works" on Fabric, Forge, NeoForge, Quilt |
+| **Developer** | Clean architecture: profiling → offload → render separation, plugin channels, multi-loader support (Fabric, Forge, NeoForge, Quilt) |
 
 ---
 
@@ -136,7 +136,11 @@ grace-period-seconds: 30
 
 ### Players (Client Mod)
 1. Download the correct JAR for your loader from **Releases** (or Modrinth)
-2. Place in your `mods` folder (Fabric)
+   - **Fabric** → `bedwars-optimizer-fabric-<version>.jar`
+   - **Forge** → `bedwars-optimizer-forge-<version>.jar`
+   - **NeoForge** → `bedwars-optimizer-neoforge-<version>.jar`
+   - **Quilt** → `bedwars-optimizer-quilt-<version>.jar`
+2. Place in your `mods` folder
 3. Join **THE SMP BedWars** — mod auto-registers
 
 ### Server Admins (Plugin)
