@@ -1,6 +1,16 @@
 # THE SMP BedWars Optimization Mod
 
+<div align="center">
+
 A high-performance client-side optimization mod + server plugin duo designed specifically for **THE SMP's BedWars server**. This mod dramatically improves FPS, reduces lag spikes, and offloads heavy computational work from the server to capable clients — all while adding a **Hypixel-style health display** (number + hearts over players).
+
+[![GitHub](https://img.shields.io/badge/GitHub-Repo-blue?logo=github)](https://github.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN)
+[![Modrinth](https://img.shields.io/badge/Modrinth-Page-green?logo=modrinth)](https://modrinth.com/project/THESMPBedwarsOptimizationMod)
+[![Discord](https://img.shields.io/badge/Discord-THE_SMP-5865F2?logo=discord)](https://discord.com/invite/xvxYN2F3vb)
+[![Minecraft](https://img.shields.io/badge/MC-1.20.4%20%2B-orange?logo=microsoftminecraft)]
+[![Java](https://img.shields.io/badge/Java-21+-blue?logo=openjdk)]
+
+</div>
 
 ---
 
@@ -37,7 +47,7 @@ Instead of the server rendering bossbars or holograms for every player, **each c
 - **Massive server tick savings** — No more per-player bossbar updates on the main thread
 
 ### 3. Mod Enforcement (Java Players Only)
-- **Java players MUST have the mod with the version the same as the server plugin version** to join — automatic kick after grace period
+- **Java players MUST have the mod v1.1.0+** to join — automatic kick after grace period
 - **Bedrock players (Geyser/Floodgate) are fully supported** — no mod required, handled server-side
 - **Geyser/Floodgate offload** — Under heavy load, Bedrock processing work can be offloaded to capable Java clients
 
@@ -141,6 +151,9 @@ grace-period-seconds: 30
 
 - **Server Discord:** [THE SMP](https://discord.com/invite/xvxYN2F3vb) — join for BedWars IP, support, updates
 - **Issues & Bug Reports:** [GitHub Issues](https://github.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN/issues)
+- **Documentation:** [Wiki Home](../../wiki/Home)
+- **Architecture Guide:** [Architecture Wiki](../../wiki/Architecture)
+- **Installation Guide:** [Installation Wiki](../../wiki/Installation)
 
 ---
 
