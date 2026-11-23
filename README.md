@@ -5,7 +5,7 @@
 A high-performance client-side optimization mod + server plugin duo designed specifically for **THE SMP's BedWars server**. This mod dramatically improves FPS, reduces lag spikes, and offloads heavy computational work from the server to capable clients — all while adding a **Hypixel-style health display** (number + hearts over players).
 
 [![GitHub](https://img.shields.io/badge/GitHub-Repo-blue?logo=github)](https://github.com/TheRealRexo/THESMP-OPTIMIZATIONMODANDPLUGIN)
-[![Modrinth](https://img.shields.io/badge/Modrinth-Page-green?logo=modrinth)](https://modrinth.com/project/THESMPBedwarsOptimizationMod)
+[![Modrinth](https://img.shields.io/badge/Modrinth-Page-green?logo=modrinth)](https://modrinth.com/mod/thesmpbedwarsoptimizationmod)
 [![Discord](https://img.shields.io/badge/Discord-THE_SMP-5865F2?logo=discord)](https://discord.com/invite/xvxYN2F3vb)
 [![Minecraft](https://img.shields.io/badge/MC-1.20.4%20%2B-orange?logo=microsoftminecraft)]
 [![Java](https://img.shields.io/badge/Java-21+-blue?logo=openjdk)]
